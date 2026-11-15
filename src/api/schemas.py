@@ -1,0 +1,72 @@
+"""API contract for AgentQuiver (request / response models).
+
+These models are the contract between the backend, the Streamlit app and the
+model team. The mock and the real model must both return these exact shapes.
+"""
+from datetime import datetime
+from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class Action(str, Enum):
+    """What the user did with a recommendation in the app."""
+    useful = "useful"
+    not_useful = "not_useful"
+    open = "open"      # clicked to open the repo
+    star = "star"      # starred the repo on GitHub afterwards
+
+
+class RepoCard(BaseModel):
+    repo_id: str = Field(..., examples=["vllm-project/vllm"])
+    description: Optional[str] = None
+    language: Optional[str] = None
+    topics: List[str] = []
+    stars: Optional[int] = None
+    created_at: Optional[datetime] = None
+    url: str
+
+
+class RecommendedRepo(BaseModel):
+    rank: int = Field(..., ge=1, description="Global rank, 1 = best")
+    score: float = Field(..., description="Model score (probability of star/fork)")
+    is_new: bool = Field(False, description="True if the repo is a cold-start repo")
+    repo: RepoCard
+
+
+class Interest(BaseModel):
+    interest_id: int = Field(..., ge=0, description="Index of the interest channel (OMIE)")
+    label: str = Field(..., examples=["LLM serving"])
+    explanation: str = Field(..., examples=["Because you work on LLM serving"])
+    evidence: List[str] = Field([], description="Repos from the history behind this interest")
+    recommendations: List[RecommendedRepo]
+
+
+class RecommendResponse(BaseModel):
+    username: str
+    k: int
+    model_version: str
+    is_mock: bool
+    generated_at: datetime
+    interests: List[Interest]
+
+
+class InteractionIn(BaseModel):
+    user_id: str = Field(..., examples=["torvalds"])
+    repo_id: str = Field(..., examples=["vllm-project/vllm"])
+    interest_id: Optional[int] = Field(None, ge=0)
+    rank: Optional[int] = Field(None, ge=1)
+    action: Action
+    timestamp: Optional[datetime] = None
+
+
+class InteractionOut(InteractionIn):
+    interaction_id: int
+    timestamp: datetime
+
+
+class Health(BaseModel):
+    status: str
+    model_version: str
+    is_mock: bool
