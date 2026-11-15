@@ -1,0 +1,16 @@
+{
+  "data_kind": "synthetic_only",
+  "initial_validation_loss": 2.0994701385498047,
+  "best_validation_loss": 0.04630549997091293,
+  "reloaded_validation_loss": 0.04630549997091293,
+  "checkpoint_reload_passed": true,
+  "prediction_smoke_passed": true,
+  "torch_version": "2.15.0+cpu",
+  "config": {
+    "epochs": 12,
+    "batch_size": 32,
+    "lr": 0.003,
+    "seed": 42,
+    "output": "artifacts\\synthetic"
+  }
+}
