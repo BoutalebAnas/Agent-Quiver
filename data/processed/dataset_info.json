@@ -1,0 +1,136 @@
+{
+  "params": {
+    "MIN_ITEM_DEVS": 3,
+    "MIN_USER_INTERACTIONS": 5,
+    "T_VALID": "2026-01-01",
+    "T_TEST": "2026-04-01"
+  },
+  "stats": {
+    "developers": 322,
+    "items": 607,
+    "interactions": 4611,
+    "sparsity_%": 97.64,
+    "interactions_per_dev_median": 11.0,
+    "interactions_per_dev_mean": 14.3,
+    "devs_per_item_median": 5.0,
+    "ai_items": 43,
+    "ai_interactions": 355,
+    "date_min": "2014-06-09",
+    "date_max": "2026-11-18",
+    "still_in_use_%": 91.0
+  },
+  "splits": {
+    "leave_last_out": {
+      "train_interactions": 3967,
+      "train_ai_interactions": 292,
+      "valid_interactions": 322,
+      "valid_ai_interactions": 27,
+      "test_interactions": 322,
+      "test_ai_interactions": 36,
+      "eval_users": 322,
+      "eval_users_with_ai_target": 36,
+      "test_cold_item_share_%": 0.0
+    },
+    "temporal": {
+      "train_interactions": 1970,
+      "train_ai_interactions": 95,
+      "valid_interactions": 589,
+      "valid_ai_interactions": 62,
+      "test_interactions": 2052,
+      "test_ai_interactions": 198,
+      "eval_users": 98,
+      "eval_users_with_ai_target": 27,
+      "test_cold_item_share_%": 17.0
+    }
+  },
+  "canon": {
+    "tool:openai": [
+      "npm:openai",
+      "pypi:openai"
+    ],
+    "tool:anthropic": [
+      "npm:@anthropic-ai/sdk",
+      "pypi:anthropic"
+    ],
+    "tool:google-genai": [
+      "npm:@google/genai",
+      "pypi:google-genai"
+    ],
+    "tool:google-generativeai": [
+      "npm:@google/generative-ai",
+      "pypi:google-generativeai"
+    ],
+    "tool:mcp-sdk": [
+      "npm:@modelcontextprotocol/sdk",
+      "pypi:mcp"
+    ],
+    "tool:langchain": [
+      "npm:langchain",
+      "pypi:langchain"
+    ],
+    "tool:langchain-core": [
+      "npm:@langchain/core",
+      "pypi:langchain-core"
+    ],
+    "tool:langchain-openai": [
+      "npm:@langchain/openai",
+      "pypi:langchain-openai"
+    ],
+    "tool:langchain-community": [
+      "npm:@langchain/community",
+      "pypi:langchain-community"
+    ],
+    "tool:langgraph": [
+      "npm:@langchain/langgraph",
+      "pypi:langgraph"
+    ],
+    "tool:langsmith": [
+      "npm:langsmith",
+      "pypi:langsmith"
+    ],
+    "tool:transformers": [
+      "pypi:transformers",
+      "npm:@huggingface/transformers",
+      "npm:@xenova/transformers"
+    ],
+    "tool:huggingface-hub": [
+      "pypi:huggingface-hub",
+      "npm:@huggingface/hub"
+    ],
+    "tool:chromadb": [
+      "npm:chromadb",
+      "pypi:chromadb"
+    ],
+    "tool:qdrant": [
+      "npm:@qdrant/js-client-rest",
+      "pypi:qdrant-client"
+    ],
+    "tool:pinecone": [
+      "npm:@pinecone-database/pinecone",
+      "pypi:pinecone-client",
+      "pypi:pinecone"
+    ],
+    "tool:ollama": [
+      "npm:ollama",
+      "pypi:ollama"
+    ],
+    "tool:tiktoken": [
+      "npm:tiktoken",
+      "npm:js-tiktoken",
+      "pypi:tiktoken"
+    ],
+    "tool:onnxruntime": [
+      "pypi:onnxruntime",
+      "npm:onnxruntime-node",
+      "npm:onnxruntime-web"
+    ],
+    "tool:tensorflow": [
+      "pypi:tensorflow",
+      "npm:@tensorflow/tfjs"
+    ],
+    "tool:llamaindex": [
+      "pypi:llama-index",
+      "npm:llamaindex"
+    ]
+  }
+}
