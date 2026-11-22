@@ -7,4 +7,5 @@ pytest>=8.0
 numpy>=1.26,<3
 pandas>=2.2,<4
 scikit-learn>=1.4,<2
-matplotlib>=3.8,<4
+matplotlib>=3.8,<4requests>=2.31
+packaging>=23.0
