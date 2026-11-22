@@ -47,15 +47,32 @@ with st.sidebar:
     go = st.button("Recommend", type="primary", use_container_width=True)
 
 # ---------------------------------------------------------------- recommend
-if go:
+def fetch(user, n):
+    """Ask the API for recommendations. Items the user already rated are excluded by the API."""
     t0 = time.perf_counter()
-    r = call("GET", "/recommend", params={"username": username, "k": k})
+    r = call("GET", "/recommend", params={"username": user, "k": n})
     st.session_state["latency"] = time.perf_counter() - t0
+    st.session_state["query"] = (user, n)
     if r.status_code == 200:
         st.session_state["result"] = r.json()
     else:
         st.session_state.pop("result", None)
         st.error(f"{r.status_code}: {r.json().get('detail')}")
+
+
+def rate(user, item_id, interest_id, rank, action, label):
+    """Save the rating, then refresh: the item leaves the list and appears in the feedback table."""
+    call("POST", "/log_interaction", json={"user_id": user, "repo_id": item_id,
+                                           "interest_id": interest_id, "rank": rank, "action": action})
+    st.session_state["toast"] = f"Saved: {label} for {item_id}"
+    fetch(*st.session_state["query"])
+
+
+if go:
+    fetch(username, k)
+
+if "toast" in st.session_state:
+    st.toast(st.session_state.pop("toast"))
 
 res = st.session_state.get("result")
 if res:
@@ -76,11 +93,8 @@ if res:
                             f"<small>{item.get('description') or 'No description'} · "
                             f"score {rec['score']:.2f}</small>", unsafe_allow_html=True)
                 for col, action, label in ((c2, "useful", "Useful"), (c3, "not_useful", "Not useful")):
-                    if col.button(label, key=f"{action}-{item['repo_id']}"):
-                        call("POST", "/log_interaction", json={
-                            "user_id": user, "repo_id": item["repo_id"],
-                            "interest_id": it["interest_id"], "rank": rec["rank"], "action": action})
-                        st.toast(f"Saved: {label} for {item['repo_id']}")
+                    col.button(label, key=f"{action}-{item['repo_id']}", on_click=rate,
+                               args=(user, item["repo_id"], it["interest_id"], rec["rank"], action, label))
 
     # live proof that feedback reaches the database
     st.divider()

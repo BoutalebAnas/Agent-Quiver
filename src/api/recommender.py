@@ -8,7 +8,7 @@ that calls the predict function, then sets AQ_RECOMMENDER=model.
 import hashlib
 import random
 from datetime import datetime, timedelta, timezone
-from typing import List, Protocol
+from typing import Iterable, List, Protocol
 
 from .schemas import Interest, RecommendedRepo, RepoCard
 
@@ -19,8 +19,8 @@ class Recommender(Protocol):
     model_version: str
     is_mock: bool
 
-    def recommend(self, username: str, k: int = 10) -> List[Interest]:
-        """Return up to `k` items in total, grouped by interest.
+    def recommend(self, username: str, k: int = 10, exclude: Iterable[str] = ()) -> List[Interest]:
+        """Return up to `k` items in total, grouped by interest, never items in `exclude`.
         Raise UnknownUserError if the user cannot be served."""
         ...
 
@@ -93,7 +93,8 @@ class MockRecommender:
     def known_users(self, limit: int = 20) -> List[str]:
         return ["torvalds", "gvanrossum", "MonteLion05"][:limit]
 
-    def recommend(self, username: str, k: int = 10) -> List[Interest]:
+    def recommend(self, username: str, k: int = 10, exclude: Iterable[str] = ()) -> List[Interest]:
+        exclude = set(exclude)
         seed = int(hashlib.sha256(username.lower().encode()).hexdigest(), 16) % (2**32)
         rng = random.Random(seed)
         now = datetime.now(timezone.utc)
@@ -105,7 +106,7 @@ class MockRecommender:
         scored = []  # (score, interest_idx, repo tuple, is_new)
         evidence = {}
         for idx, label in enumerate(labels):
-            repos = _CATALOGUE[label][:]
+            repos = [r for r in _CATALOGUE[label] if r[0] not in exclude]
             rng.shuffle(repos)
             evidence[idx] = [r[0] for r in repos[per[idx]:per[idx] + 2]]
             for r in repos[: per[idx]]:
