@@ -1,10 +1,12 @@
 """Tests of the API with the MOCK recommender (always, whatever AQ_RECOMMENDER says)."""
 import importlib
 import os
+import tempfile
 
 from fastapi.testclient import TestClient
 
 os.environ["AQ_RECOMMENDER"] = "mock"
+os.environ["AQ_DB"] = os.path.join(tempfile.mkdtemp(), "test.db")  # never touch the real DB
 import src.api.main as main  # noqa: E402
 
 importlib.reload(main)
@@ -66,3 +68,11 @@ def test_log_interaction():
 def test_users_endpoint():
     r = client.get("/users", params={"limit": 2})
     assert r.status_code == 200 and len(r.json()) == 2
+
+
+def test_log_interaction_is_written_to_sqlite():
+    import sqlite3
+    client.post("/log_interaction", json={"user_id": "carol", "repo_id": "npm:zod", "action": "not_useful"})
+    con = sqlite3.connect(os.environ["AQ_DB"])
+    rows = con.execute("SELECT user_id, repo_id, action FROM interactions WHERE user_id='carol'").fetchall()
+    assert rows == [("carol", "npm:zod", "not_useful")]
