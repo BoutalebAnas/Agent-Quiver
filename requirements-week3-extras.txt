@@ -1,2 +1,0 @@
--r requirements-week3.txt
-matplotlib>=3.8,<4

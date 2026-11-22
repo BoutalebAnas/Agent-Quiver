@@ -1,10 +1,10 @@
-"""Tests for Week 3 contribution. No checkpoints overwritten by these tests."""
+"""Tests for the curve parser and the predictor. No checkpoints are overwritten by these tests."""
 from pathlib import Path
 
 import pytest
 
-from scripts.week3_curves import parse_log
-from scripts.week3_predict import ModelPredictor
+from scripts.training_curves import parse_log
+from scripts.predict import ModelPredictor
 
 
 def test_curve_parser_only_reads_observed_lines():
@@ -24,7 +24,7 @@ def test_curve_parser_rejects_missing_history():
 @pytest.fixture(scope="module")
 def predictor():
     root = Path(__file__).resolve().parents[1]
-    checkpoint = root / "ckpt_loo_c4.pt"
+    checkpoint = root / "models" / "ckpt_loo_c4.pt"
     if not checkpoint.exists():
         pytest.skip("No local checkpoint")
     return ModelPredictor(checkpoint)
@@ -43,5 +43,5 @@ def test_prediction_returns_real_unseen_items(predictor):
 
 
 def test_unknown_user_is_rejected(predictor):
-    with pytest.raises(ValueError, match="Unknown developer"):
+    with pytest.raises(ValueError, match="Unknown user"):
         predictor.predict("unknown_user_not_in_dataset_xyz", 3)

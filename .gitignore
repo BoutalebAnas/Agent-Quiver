@@ -235,3 +235,9 @@ venv/
 data/raw/
 data/interim/
 *.json.gz
+*.pt
+*.zip
+models/
+results/
+data/new_raw/
+data/processed/processed/

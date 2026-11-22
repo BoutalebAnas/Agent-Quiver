@@ -1,8 +1,8 @@
-"""Smoke tests for the additional Week 3 evaluation utilities."""
+"""Smoke tests for the baseline evaluation and sample-integrity utilities."""
 
 import numpy as np
 
-from scripts.week3_evaluate import integrity_checks, sample_key
+from scripts.evaluate_baselines import integrity_checks, sample_key
 
 
 def test_sample_key_uses_timestamp_target_and_user():
