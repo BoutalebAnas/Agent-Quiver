@@ -1,1 +1,145 @@
-# Agent-Quiver
+# AgentQuiver
+
+Recommending the next open-source packages (npm / PyPI) to a developer or project, from their dated history of adopted dependencies.
+
+The system has four parts: a dataset pipeline, a sequence model (`src/`), an API with a SQLite feedback log (`src/api/`), and a Streamlit front-end (`app/`).
+
+---
+
+## Quick start
+
+Requires Python 3.10+.
+
+```powershell
+git clone https://github.com/BoutalebAnas/Agent-Quiver.git
+cd Agent-Quiver
+pip install -r requirements.txt
+```
+
+### 1. Data
+
+Execute `01_extract_data.ipynb` first (GitHub API calls, about 1–2 hours of GraphQL quota), then `02_prepare_dataset.ipynb`.
+**Outputs:** raw tables in `data/interim/` (`dep_events.csv`, `packages.csv`, `stars.csv`...), then processed data in `data/processed/` (`interactions.csv`, `items.csv`, `users.csv`, `dataset_info.json`...).
+
+### 2. Model checkpoint
+
+Train the model (about 16 minutes on CPU) with:
+
+```powershell
+python -m src.train --protocol loo --no_ranker
+```
+
+The checkpoint is written to `models/`.
+
+### 3. Run the system (two terminals)
+
+Terminal 1, the API (http://127.0.0.1:8000/docs):
+
+```powershell
+$env:AQ_RECOMMENDER="model"
+python -m uvicorn src.api.main:app
+```
+macOS/Linux: `AQ_RECOMMENDER=model python -m uvicorn src.api.main:app`
+
+Terminal 2, the front-end (http://localhost:8501):
+
+```powershell
+python -m streamlit run app/streamlit_app.py
+```
+
+Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in the database.
+
+Check that it really runs the model: `GET /health` must return `"is_mock": false` and `"model_version": "ckpt_loo_c4.pt"`.
+
+### 4. Tests
+
+```powershell
+python -m pytest -q
+```
+
+Tests that need the checkpoint or the data are skipped when those are missing; make sure they are not skipped on your machine.
+
+---
+
+## API
+
+| Route | What it does |
+|---|---|
+| `GET /health` | Status, model version, `is_mock` |
+| `GET /users?limit=` | Users the model can serve (most active first) |
+| `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest. User ids look like `pypi:<project>` or `gh:<login>`; an unknown user returns 404 |
+| `POST /log_interaction` | Stores `user_id, repo_id, interest_id, rank, action` in SQLite (`data/agentquiver.db`, override with the `AQ_DB` variable) |
+| `GET /interactions?user_id=&limit=` | Reads the stored feedback back (newest first) |
+
+Scores are similarities, **not probabilities** (`score_type` says so). To reset the demo database, stop the API and delete the file set in `AQ_DB`.
+The feedback is stored for a future training run; nothing reads it back into the model yet.
+
+---
+
+## The model
+
+`src/core_model.py`, trained by `src/train.py`.
+
+- **Sequence encoder.** A small Transformer over the user's dated history. An item vector is an ID embedding plus a TF-IDF/SVD vector of its description; an embedding of each event's age is added.
+- **Interest extractor.** Four attention channels (inspired by the OMIE module of DiffuMIN, Lai et al., RecSys 2025) with an orthogonality penalty.
+- **Score.** Cosine similarity with a learned scale, best match over the interests. Already-adopted packages are removed.
+- **Tested but not used in the final system.** A target-guided ranker (`--ranker` is the default of `src.train`; the final system uses `--no_ranker`) and a diffusion module (`--diffusion`).
+
+## Evaluation
+
+Two protocols, both over the full catalogue, with 95% bootstrap intervals:
+
+- **LOO**: each user's last dated adoption is the test target, the one before it the validation target.
+- **Temporal**: train before 2025-10-17, validation until 2026-05-12, test after.
+
+Results on the merged dataset (44,703 adoptions, 3,840 users, 7,561 packages, 99.85% sparse):
+
+| | LOO Recall@20 | LOO NDCG@10 | Temporal Recall@20 | Temporal NDCG@10 |
+|---|---|---|---|---|
+| Most popular | 0.278 [0.264, 0.292] | 0.095 | 0.186 [0.175, 0.197] | 0.063 |
+| Retriever (final) | **0.316** [0.302, 0.331] | **0.139** [0.130, 0.147] | 0.179 [0.167, 0.191] | 0.071 [0.065, 0.078] |
+
+- In LOO the model is significantly better than popularity.
+- In the temporal protocol it is tied with popularity in Recall@20.
+- Cold start (packages absent from training) is **not solved**: Recall@20 is 0 for both, and 59% of packages have no text description.
+- Run-to-run variation is about 0.003-0.005.
+
+Ablations (LOO, one seed; full model 0.312 Recall@20 / 0.131 NDCG@10):
+
+| Variant | Recall@20 | NDCG@10 |
+|---|---|---|
+| One interest instead of four | 0.312 | 0.133 |
+| Without text | 0.288 | 0.128 |
+| Without event age | 0.267 | 0.112 |
+
+Event age matters most, text a little, and several interests bring no measurable gain: a manual check shows the four channels recommend almost the same packages. The two-stage ranker lowered validation Recall@20 from about 0.30 to 0.08, so it is not part of the final system. The diffusion module was only tested on an earlier, smaller dataset, where it did not help.
+
+Reproduce:
+
+```powershell
+python -m scripts.evaluate_baselines --protocol both        # baselines + sample-integrity checks
+python -m src.train --protocol loo --no_ranker
+python -m src.train --protocol temporal --no_ranker
+python -m src.ablate retr                                    # ablations without the ranker
+python -m src.manual_check models/ckpt_loo_c4.pt             # what each interest looks at
+python scripts/measure_latency.py                            # API running; median 0.08 s, max 0.19 s
+```
+
+---
+
+## Known limitations
+
+- Recommendations can come from another ecosystem than the user's (a PyPI project may receive npm packages).
+- Interest explanations can rely on infrastructure dependencies or on the project's own sub-packages.
+- Some packages have no description; `stars`, `language` and `created_at` are empty; `is_new` is always `false`.
+- Only users present in the dataset can be served (no live GitHub lookup yet).
+- A user is either a project or a developer; the data is dominated by PyPI projects (about 90% of interactions).
+
+## Team
+
+| Member | Role |
+|---|---|
+| Ahmed Amine Zahraoui | Project Lead, Data Engineer |
+| Anas Boutaleb | Lead ML Engineer (MLE-Core) |
+| Ahmed El Monaser | ML Engineer (MLE-Ops) |
+| Lionel Monteiro Wora | Systems Engineer |
