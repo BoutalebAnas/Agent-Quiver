@@ -1,6 +1,7 @@
 """End-to-end tests with the TRAINED model. Skipped if the checkpoint or data are missing."""
 import importlib
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ pytestmark = pytest.mark.skipif(not (CKPT.exists() and DATA.exists()),
 @pytest.fixture(scope="module")
 def client():
     os.environ["AQ_RECOMMENDER"] = "model"
+    os.environ["AQ_DB"] = os.path.join(tempfile.mkdtemp(), "test.db")
     import src.api.main as main
     importlib.reload(main)
     from fastapi.testclient import TestClient

@@ -241,3 +241,4 @@ models/
 results/
 data/new_raw/
 data/processed/processed/
+data/agentquiver.db
