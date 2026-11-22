@@ -11,6 +11,18 @@ AQ_RECOMMENDER=model uv run uvicorn src.api.main:app --reload
 Interactive docs: http://127.0.0.1:8000/docs
 Other checkpoint: `AQ_CHECKPOINT=models/other.pt`.
 
+## Front-end (Streamlit)
+In a second terminal, with the API running:
+```bash
+uv run streamlit run app/streamlit_app.py      # opens http://localhost:8501
+```
+The app only calls the API over HTTP (env `AQ_API`, default http://127.0.0.1:8000).
+
+## Feedback database (SQLite)
+`POST /log_interaction` writes to `data/agentquiver.db` (env `AQ_DB`), table `interactions`.
+Check it: `sqlite3 data/agentquiver.db "SELECT * FROM interactions ORDER BY id DESC LIMIT 5;"`
+or `GET /interactions?user_id=<user>`.
+
 ## Endpoints
 | Method | Route | Purpose |
 |---|---|---|
@@ -18,7 +30,7 @@ Other checkpoint: `AQ_CHECKPOINT=models/other.pt`.
 | GET | `/users?limit=20` | Users the model can serve (most active first) |
 | GET | `/recommend?username=<user>&k=10` | Top-k items grouped by interest, with explanation. 404 if unknown user |
 | POST | `/log_interaction` | Save feedback: `user_id, repo_id, interest_id, rank, action, timestamp` |
-| GET | `/interactions?user_id=` | Show recorded feedback (demo/debug) |
+| GET | `/interactions?user_id=&limit=` | Recorded feedback from SQLite, newest first |
 
 ## With the trained model
 - Uses `ModelPredictor` (scripts/predict.py): weights loaded once at start-up.
@@ -30,6 +42,6 @@ Other checkpoint: `AQ_CHECKPOINT=models/other.pt`.
 
 ## Tests
 ```bash
-uv run python -m pytest tests/test_api.py tests/test_api_model.py -q
+uv run python -m pytest tests/test_api.py tests/test_api_model.py tests/test_db.py -q
 ```
 `test_api_model.py` is skipped if the checkpoint or the data are missing.

@@ -13,8 +13,10 @@ Scores are cosine similarity x learned scale, not probabilities.
 """
 from __future__ import annotations
 
+import re
+
 from pathlib import Path
-from typing import List
+from typing import Iterable, List
 
 import numpy as np
 import pandas as pd
@@ -30,6 +32,13 @@ from .schemas import Interest, RecommendedRepo, RepoCard
 def _short(item: str) -> str:
     """'pypi:requests' -> 'requests'."""
     return item.split(":", 1)[1] if ":" in item else item
+
+
+def _ecos(value) -> set:
+    """'npm|pypi' -> {'npm', 'pypi'}."""
+    if not isinstance(value, str):
+        return set()
+    return {e.strip() for e in re.split(r"[|,]", value) if e.strip()}
 
 
 def _url(item: str) -> str | None:
@@ -66,14 +75,21 @@ class ModelRecommender:
 
     # --------------------------------------------------------------------- main
     @torch.no_grad()
-    def recommend(self, username: str, k: int = 10) -> List[Interest]:
+    def recommend(self, username: str, k: int = 10, exclude: Iterable[str] = ()) -> List[Interest]:
+        """Top-k items for `username`. Items in `exclude` (already rated by the user in the app)
+        are skipped; extra candidates are fetched so that k items are still returned."""
         instant = pd.Timestamp.now(tz="UTC")
+        exclude = set(exclude)
         try:
-            records = self.p.predict(username, k=k, as_of=instant.isoformat())
+            candidates = self.p.predict(username, k=min(50, k + len(exclude)), as_of=instant.isoformat())
         except ValueError as e:                       # unknown user / empty history
             raise UnknownUserError(str(e)) from e
 
         hist = self._history(username, instant)
+        records = [r for r in candidates if r["item"] not in exclude][:k]
+        for new_rank, r in enumerate(records, start=1):   # ranks 1..k after filtering
+            r["rank"] = new_rank
+
         ids = hist["item_id"].to_numpy(dtype=np.int64) + 1
         ages = ((instant - hist["date"]).dt.total_seconds().to_numpy() / 86400).clip(min=0)
         items_t = torch.from_numpy(ids[None, :])
@@ -98,7 +114,7 @@ class ModelRecommender:
                 repo=RepoCard(
                     repo_id=item, kind="package",
                     description=r["summary"] or None,
-                    topics=[e for e in r["ecosystems"].split(",") if e],
+                    topics=sorted(_ecos(r["ecosystems"])),
                     url=r["repo_url"] or _url(item),
                 ),
             ))

@@ -7,12 +7,12 @@ Docs:  http://127.0.0.1:8000/docs
 """
 import os
 import re
-import threading
 from datetime import datetime, timezone
 from typing import List
 
 from fastapi import FastAPI, HTTPException, Query
 
+from .db import InteractionStore
 from .recommender import UnknownUserError, get_recommender
 from .schemas import Health, InteractionIn, InteractionOut, RecommendResponse
 
@@ -28,9 +28,8 @@ app = FastAPI(
     description="Recommends the next open-source AI repositories to a GitHub developer.",
 )
 
-# Temporary in-memory store. The Data Engineer replaces it with SQLite (SQLAlchemy).
-_interactions: List[InteractionOut] = []
-_lock = threading.Lock()
+# Feedback is stored in SQLite (env AQ_DB, default data/agentquiver.db)
+store = InteractionStore()
 
 
 @app.get("/health", response_model=Health, tags=["system"])
@@ -46,7 +45,8 @@ def recommend(
     if not _GH_USER.match(username):
         raise HTTPException(status_code=422, detail="Invalid GitHub username")
     try:
-        interests = recommender.recommend(username, k)
+        # items already rated by this user in the app are not recommended again
+        interests = recommender.recommend(username, k, exclude=store.rated_items(username))
     except UnknownUserError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return RecommendResponse(
@@ -65,17 +65,17 @@ def users(limit: int = Query(20, ge=1, le=500)) -> List[str]:
 
 @app.post("/log_interaction", response_model=InteractionOut, status_code=201, tags=["feedback"])
 def log_interaction(event: InteractionIn) -> InteractionOut:
-    with _lock:
-        out = InteractionOut(
-            **event.model_dump(exclude={"timestamp"}),
-            interaction_id=len(_interactions) + 1,
-            timestamp=event.timestamp or datetime.now(timezone.utc),
-        )
-        _interactions.append(out)
-    return out
+    ts = event.timestamp or datetime.now(timezone.utc)
+    new_id = store.add(event.user_id, event.repo_id, event.interest_id, event.rank,
+                       event.action.value, ts.isoformat())
+    return InteractionOut(**event.model_dump(exclude={"timestamp"}), interaction_id=new_id, timestamp=ts)
 
 
 @app.get("/interactions", response_model=List[InteractionOut], tags=["feedback"])
-def list_interactions(user_id: str | None = None) -> List[InteractionOut]:
-    """Debug endpoint for the demo: show recorded feedback live."""
-    return [e for e in _interactions if user_id is None or e.user_id == user_id]
+def list_interactions(user_id: str | None = None,
+                      limit: int = Query(100, ge=1, le=1000)) -> List[InteractionOut]:
+    """Recorded feedback, newest first (read from the SQLite database)."""
+    return [InteractionOut(interaction_id=r["id"], user_id=r["user_id"], repo_id=r["repo_id"],
+                           interest_id=r["interest_id"], rank=r["rank"], action=r["action"],
+                           timestamp=r["timestamp"])
+            for r in store.list(user_id, limit)]
