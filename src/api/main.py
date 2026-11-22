@@ -45,7 +45,8 @@ def recommend(
     if not _GH_USER.match(username):
         raise HTTPException(status_code=422, detail="Invalid GitHub username")
     try:
-        interests = recommender.recommend(username, k)
+        # items already rated by this user in the app are not recommended again
+        interests = recommender.recommend(username, k, exclude=store.rated_items(username))
     except UnknownUserError as e:
         raise HTTPException(status_code=404, detail=str(e))
     return RecommendResponse(

@@ -76,3 +76,14 @@ def test_log_interaction_is_written_to_sqlite():
     con = sqlite3.connect(os.environ["AQ_DB"])
     rows = con.execute("SELECT user_id, repo_id, action FROM interactions WHERE user_id='carol'").fetchall()
     assert rows == [("carol", "npm:zod", "not_useful")]
+
+
+def test_rated_item_disappears_from_recommendations():
+    def ids(u):
+        return [x["repo"]["repo_id"] for it in client.get("/recommend", params={"username": u}).json()["interests"]
+                for x in it["recommendations"]]
+    first = ids("dave")[0]
+    client.post("/log_interaction", json={"user_id": "dave", "repo_id": first, "action": "useful"})
+    client.post("/log_interaction", json={"user_id": "dave", "repo_id": first, "action": "useful"})  # double click
+    assert first not in ids("dave")
+    assert len(client.get("/interactions", params={"user_id": "dave"}).json()) == 1
