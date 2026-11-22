@@ -1,0 +1,4 @@
+protocol,configuration,seed,recall@20,ndcg@10,auc,n_test,provenance
+loo,full,0,0.1491,0.0674,0.7161,322,User local terminal run 2026-11-22
+loo,no_text,0,0.1149,0.0369,0.6440,322,User local terminal run 2026-11-22
+loo,no_age,0,0.1863,0.0539,0.6182,322,User local terminal run 2026-11-22
