@@ -20,8 +20,17 @@ class Recommender(Protocol):
     is_mock: bool
 
     def recommend(self, username: str, k: int = 10) -> List[Interest]:
-        """Return up to `k` repos in total, grouped by interest."""
+        """Return up to `k` items in total, grouped by interest.
+        Raise UnknownUserError if the user cannot be served."""
         ...
+
+    def known_users(self, limit: int = 20) -> List[str]:
+        """Usernames that can be served (for the demo drop-down)."""
+        ...
+
+
+class UnknownUserError(ValueError):
+    """The user is not in the dataset or has no history."""
 
 
 # Small hand-made catalogue, only used by the mock.
@@ -79,6 +88,10 @@ class MockRecommender:
     """
     model_version = "mock-0.1"
     is_mock = True
+    score_type = "mock"
+
+    def known_users(self, limit: int = 20) -> List[str]:
+        return ["torvalds", "gvanrossum", "MonteLion05"][:limit]
 
     def recommend(self, username: str, k: int = 10) -> List[Interest]:
         seed = int(hashlib.sha256(username.lower().encode()).hexdigest(), 16) % (2**32)
@@ -123,5 +136,9 @@ class MockRecommender:
 def get_recommender(name: str = "mock") -> Recommender:
     if name == "mock":
         return MockRecommender()
-    # week 3: elif name == "model": from .model_recommender import ModelRecommender; return ModelRecommender()
+    if name == "model":
+        import os
+        from .model_recommender import ModelRecommender   # imported here so the mock needs no torch
+        return ModelRecommender(os.getenv("AQ_CHECKPOINT", "models/ckpt_loo_c4.pt"),
+                                os.getenv("AQ_DATA_DIR") or None)
     raise ValueError(f"Unknown recommender '{name}'")

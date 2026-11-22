@@ -1,6 +1,14 @@
+"""Tests of the API with the MOCK recommender (always, whatever AQ_RECOMMENDER says)."""
+import importlib
+import os
+
 from fastapi.testclient import TestClient
 
-from src.api.main import app
+os.environ["AQ_RECOMMENDER"] = "mock"
+import src.api.main as main  # noqa: E402
+
+importlib.reload(main)
+app = main.app
 
 client = TestClient(app)
 
@@ -39,7 +47,7 @@ def test_same_user_same_answer_different_user_different_answer():
 
 
 def test_invalid_username_and_k():
-    assert client.get("/recommend", params={"username": "-bad-"}).status_code == 422
+    assert client.get("/recommend", params={"username": "has space"}).status_code == 422
     assert client.get("/recommend", params={"username": "ok", "k": 0}).status_code == 422
 
 
@@ -53,3 +61,8 @@ def test_log_interaction():
                for e in client.get("/interactions", params={"user_id": "alice"}).json())
     bad = dict(payload, action="maybe")
     assert client.post("/log_interaction", json=bad).status_code == 422
+
+
+def test_users_endpoint():
+    r = client.get("/users", params={"limit": 2})
+    assert r.status_code == 200 and len(r.json()) == 2

@@ -19,18 +19,21 @@ class Action(str, Enum):
 
 
 class RepoCard(BaseModel):
-    repo_id: str = Field(..., examples=["vllm-project/vllm"])
+    """One recommended item. With the trained model, items are npm/PyPI packages
+    (kind="package", repo_id like "pypi:requests"), not GitHub repositories."""
+    repo_id: str = Field(..., examples=["pypi:requests"])
+    kind: str = Field("repository", description='"repository" (mock) or "package" (trained model)')
     description: Optional[str] = None
     language: Optional[str] = None
-    topics: List[str] = []
+    topics: List[str] = Field([], description="Topics, or ecosystems (npm, pypi) for packages")
     stars: Optional[int] = None
     created_at: Optional[datetime] = None
-    url: str
+    url: Optional[str] = None
 
 
 class RecommendedRepo(BaseModel):
     rank: int = Field(..., ge=1, description="Global rank, 1 = best")
-    score: float = Field(..., description="Model score (probability of star/fork)")
+    score: float = Field(..., description="Model score. Not a probability: cosine similarity x learned scale")
     is_new: bool = Field(False, description="True if the repo is a cold-start repo")
     repo: RepoCard
 
@@ -48,6 +51,7 @@ class RecommendResponse(BaseModel):
     k: int
     model_version: str
     is_mock: bool
+    score_type: str = "mock"
     generated_at: datetime
     interests: List[Interest]
 
