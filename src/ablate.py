@@ -10,13 +10,14 @@ import sys
 RETR = "retr" in sys.argv                    # python -m src.ablate retr  -> ablations WITHOUT the ranker (final system)
 PROTOS = [x for x in sys.argv[1:] if x != "retr"] or ["loo"]   # python -m src.ablate loo temporal
 if RETR:
-    CONFIGS = {"retr_full": {}, "retr_one_interest": {"c": 1}, "retr_no_age": {"no_age": True},
-               "retr_no_text": {"no_text": True}, "retr_diffusion": {"diffusion": True}}
+    CONFIGS = {"retr_one_interest": {"c": 1}, "retr_no_text": {"no_text": True}, "retr_no_age": {"no_age": True}}
     CONFIGS = {k: {**v, "use_ranker": False} for k, v in CONFIGS.items()}
-OUTCSV = "results_retr.csv" if RETR else "results.csv"
+import os; 
+os.makedirs("results", exist_ok=True)
+OUTCSV = "results/results_retr.csv" if RETR else "results/results.csv"
 for proto in PROTOS:
     for name, cfg in CONFIGS.items():
-        res = [run(proto, seed=s, verbose=False, **cfg)[0] for s in range(2)]
+        res = [run(proto, seed=s, verbose=False, **cfg)[0] for s in range(1)]
         rows.append({"protocol": proto, "config": name,
                      **{k: float(np.nanmean([r[k] for r in res])) for k in ("recall@20", "ndcg@10", "cold_recall@20")},
                      "ndcg_std": float(np.std([r["ndcg@10"] for r in res]))})

@@ -124,9 +124,11 @@ def run(protocol="loo", c=4, d=64, epochs=60, no_text=False, no_age=False, diffu
            "n_test": len(R), "n_cold": int(cold.sum()), "cold_recall@20": R[cold].mean() if cold.any() else float("nan"),
            "coverage": None}
     if ranker is not None: out["auc"] = ranker_auc(model, ranker, S["test"])
+    import os
+    os.makedirs("models", exist_ok=True)
     torch.save({"model": model.state_dict(), "ranker": ranker.state_dict() if ranker else None,
                 "cfg": dict(protocol=protocol, c=c, d=d, diffusion=diffusion, no_text=no_text)},
-               f"ckpt_{protocol}_c{c}{'_diff' if diffusion else ''}.pt")
+               f"models/ckpt_{protocol}_c{c}{'_diff' if diffusion else ''}.pt")
     return out, model, ranker, S
 
 
@@ -135,6 +137,8 @@ if __name__ == "__main__":
     ap.add_argument("--protocol", default="loo"); ap.add_argument("--c", type=int, default=4)
     ap.add_argument("--no_text", action="store_true"); ap.add_argument("--no_age", action="store_true")
     ap.add_argument("--diffusion", action="store_true"); ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--no_ranker", action="store_true")
     a = ap.parse_args()
-    o, *_ = run(a.protocol, a.c, no_text=a.no_text, no_age=a.no_age, diffusion=a.diffusion, seed=a.seed)
+    o, *_ = run(a.protocol, a.c, no_text=a.no_text, no_age=a.no_age, diffusion=a.diffusion,
+                seed=a.seed, use_ranker=not a.no_ranker)
     print("TEST", {k: (np.round(v, 4) if v is not None else None) for k, v in o.items()})
