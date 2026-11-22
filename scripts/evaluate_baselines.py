@@ -1,10 +1,10 @@
-"""Week 3: reproducible baselines and basic sample-split integrity checks.
+"""Reproducible baselines and basic sample-split integrity checks.
 
 Run from the repository root:
-    python -m scripts.week3_evaluate --protocol both
+    python -m scripts.evaluate_baselines --protocol both
 
 This module does not train or overwrite model checkpoints. It writes only
-results under reports/week3/. These checks are not a complete leakage audit.
+results under reports/evaluation/. These checks are not a complete leakage audit.
 """
 
 import argparse
@@ -16,7 +16,7 @@ import numpy as np
 
 from src.data import bootstrap_ci, evaluate, load, make_samples, popularity_scorer
 
-DEFAULT_OUTPUT = Path("reports") / "week3"
+DEFAULT_OUTPUT = Path("reports") / "evaluation"
 
 
 def sample_key(sample):

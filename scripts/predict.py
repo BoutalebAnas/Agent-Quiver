@@ -1,7 +1,7 @@
-"""Agent-Quiver Week 3: real Top-K package recommendations from a saved checkpoint.
+"""AgentQuiver: real Top-K package recommendations from a saved checkpoint.
 
 Usage (from repository root):
- python -m scripts.week3_predict --username 88subarno88 --k 5 --checkpoint path/to/ckpt.pt
+ python -m scripts.predict --username gh:SOME_LOGIN --k 5 --checkpoint models/ckpt_loo_c4.pt
 
 Returns *software packages* (npm:/pypi: ids), not invented GitHub repository cards.
 Scores are uncalibrated model logits/similarity, NOT probabilities.
@@ -21,7 +21,7 @@ from src.data import MAX_LEN, load
 
 
 class ModelPredictor:
-    """Load weights once and predict for developers available in users.csv."""
+    """Load weights once and predict for any user (project or developer) present in interactions.csv."""
 
     def __init__(self, checkpoint: str | Path, data_dir: str | Path | None = None):
         self.checkpoint = Path(checkpoint)
@@ -47,10 +47,9 @@ class ModelPredictor:
         # NOTE: older checkpoint cfg does not store no_age; full-model checkpoints
         # from the user's run use no_age=False. Do not use this to claim a No Age model.
         self.interactions, self.items = load(data_dir) if data_dir is not None else load()
-        users_path = (Path(data_dir) if data_dir is not None
-                      else Path(__file__).resolve().parents[1] / "data" / "processed") / "users.csv"
-        users = pd.read_csv(users_path, dtype={"developer": str})
-        self.user_ids = dict(zip(users["developer"].str.lower(), users["user_id"]))
+        # users are read from interactions.csv: ids look like "gh:<login>" or "pypi:<project>"
+        users = self.interactions[["user_id", "developer"]].drop_duplicates("user_id")
+        self.user_ids = dict(zip(users["developer"].astype(str).str.lower(), users["user_id"]))
         self.item_by_id = self.items.set_index("item_id")
         self.version = self.checkpoint.name
         self.n_items = n_items
@@ -66,7 +65,7 @@ class ModelPredictor:
             raise ValueError("k must be between 1 and 50")
         uid = self.user_ids.get(str(username).lower())
         if uid is None:
-            raise ValueError(f"Unknown developer {username!r}: not present in the dataset")
+            raise ValueError(f"Unknown user {username!r}: not present in the dataset")
         instant = pd.Timestamp.now(tz="UTC") if as_of is None else pd.Timestamp(as_of)
         if instant.tzinfo is None:
             instant = instant.tz_localize("UTC")
@@ -75,7 +74,7 @@ class ModelPredictor:
         history = self.interactions[(self.interactions["user_id"] == uid) &
                                     (self.interactions["date"] <= instant)].sort_values(["ts", "item_id"])
         if history.empty:
-            raise ValueError(f"No interaction history for developer {username!r} by {instant}")
+            raise ValueError(f"No interaction history for user {username!r} by {instant}")
         seen = set((history["item_id"].to_numpy(dtype=np.int64) + 1).tolist())
         recent = history.tail(MAX_LEN)
         ids = recent["item_id"].to_numpy(dtype=np.int64) + 1
@@ -117,7 +116,7 @@ class ModelPredictor:
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--username", required=True, help="Developer name from data/processed/users.csv")
+    p.add_argument("--username", required=True, help="User id as in interactions.csv, e.g. gh:<login> or pypi:<project>")
     p.add_argument("--k", type=int, default=5)
     p.add_argument("--checkpoint", required=True, help="Path to your saved full-model .pt")
     p.add_argument("--as-of", help="Optional ISO timestamp for serving history cutoff")

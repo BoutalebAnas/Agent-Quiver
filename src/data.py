@@ -10,7 +10,7 @@ def load(data_dir=DATA):
     inter = pd.read_csv(Path(data_dir) / "interactions.csv", parse_dates=["date"])
     items = pd.read_csv(Path(data_dir) / "items.csv")
     inter["day"] = (inter["date"] - inter["date"].min()).dt.total_seconds() / 86400.0
-    inter = inter.sort_values(["user_id", "ts", "item_id"]).reset_index(drop=True)
+    inter = inter.sort_values(["user_id", "date", "item_id"]).reset_index(drop=True)   # chronological, does not rely on ts
     return inter, items
 
 
@@ -35,10 +35,12 @@ def make_samples(inter, protocol="loo"):
         for name, tgt, base in (("valid", va, tr), ("test", te, np.concatenate([tr, va]))):
             if len(base) == 0:
                 continue
-            h = base[-MAX_LEN:]
-            seen = set(it[base].tolist())
             for t in tgt:
-                out[name].append((u, it[h], dy[h], dy[t], it[t], seen))
+                b = base[dy[base] <= dy[t]]          # history = what the user had BEFORE the target (no look-ahead)
+                if len(b) == 0:
+                    continue
+                h = b[-MAX_LEN:]
+                out[name].append((u, it[h], dy[h], dy[t], it[t], set(it[b].tolist())))
     return out
 
 

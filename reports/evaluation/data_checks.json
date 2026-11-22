@@ -1,0 +1,34 @@
+{
+  "loo": {
+    "train_valid_duplicate_keys": 0,
+    "train_test_duplicate_keys": 0,
+    "valid_test_duplicate_keys": 0,
+    "future_history_samples": {
+      "train": 0,
+      "valid": 0,
+      "test": 0
+    },
+    "note": "Only structural sample checks; does not audit feature fitting, text preprocessing, or model selection.",
+    "sample_counts": {
+      "train": 33183,
+      "valid": 3839,
+      "test": 3840
+    }
+  },
+  "temporal": {
+    "train_valid_duplicate_keys": 0,
+    "train_test_duplicate_keys": 0,
+    "valid_test_duplicate_keys": 0,
+    "future_history_samples": {
+      "train": 0,
+      "valid": 0,
+      "test": 0
+    },
+    "note": "Only structural sample checks; does not audit feature fitting, text preprocessing, or model selection.",
+    "sample_counts": {
+      "train": 32403,
+      "valid": 2893,
+      "test": 4190
+    }
+  }
+}
