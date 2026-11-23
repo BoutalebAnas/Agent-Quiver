@@ -1,0 +1,46 @@
+from,to,verdict,note
+msrestazure,azure-mgmt-core,replacement,Azure SDK track 1 -> track 2
+msrest,typing-extensions,side_effect,dropped with the Azure track 2 move; not the same role
+httpx,httpx2,replacement,successor by the pydantic team ("The next generation HTTP client"; released May 2026)
+toml,tomli,replacement,TOML parser
+parver,packaging,replacement,version parsing moved to packaging.version
+azure-mgmt-nspkg,isodate,side_effect,Azure namespace package removed; isodate unrelated
+appdirs,platformdirs,replacement,maintained fork
+sklearn,scikit-learn,replacement,deprecated alias -> real name
+alibabacloud-openapi-util,darabonba-core,replacement,Alibaba SDK consolidation
+alibabacloud-tea-util,darabonba-core,replacement,Alibaba SDK consolidation
+pytz,tzdata,replacement,zoneinfo + tzdata replace pytz
+alibabacloud-endpoint-util,darabonba-core,replacement,Alibaba SDK consolidation
+opencv-python,opencv-python-headless,replacement,same library without GUI
+pytz,backports-zoneinfo,replacement,zoneinfo backport replaces pytz
+pynvml,nvidia-ml-py,replacement,pynvml became a shim of the official package
+python-jose,pyjwt,replacement,JWT library
+msgpack-python,msgpack,replacement,renamed
+bs4,beautifulsoup4,replacement,placeholder name -> real package
+pytoml,toml,replacement,TOML parser
+entrypoints,importlib-metadata,replacement,entry points via importlib.metadata
+lark-parser,lark,replacement,renamed
+toml,tomlkit,replacement,TOML read/write
+qiskit-terra,qiskit,replacement,renamed
+pypiwin32,pywin32,replacement,placeholder -> real package
+chardet,charset-normalizer,replacement,encoding detection
+pycryptodome,pycryptodomex,replacement,same library separate namespace
+zstandard,backports-zstd,replacement,stdlib zstd backport
+docopt,docopt-ng,replacement,maintained fork
+nvidia-cuda-nvdisasm,cuda-bindings,side_effect,CUDA packaging reorganisation; different component
+ntlm-auth,pyspnego,replacement,NTLM/SPNEGO auth
+retry,retry2,replacement,maintained fork
+dateutil,python-dateutil,replacement,wrong name -> real package
+pyrsistent,jsonschema-specifications,side_effect,jsonschema 4.18 internals
+pyrsistent,referencing,side_effect,jsonschema 4.18 internals
+pyrsistent,rpds-py,replacement,persistent data structures (what jsonschema switched to)
+typing-inspect,typing-inspection,replacement,typing introspection
+retry,tenacity,replacement,retry library
+backoff,tenacity,replacement,retry library
+ipaddr,ipaddress,replacement,IP addresses
+htmlmin,htmlmin2,replacement,maintained fork
+bleach,nh3,replacement,HTML sanitizer
+pytorch-lightning,lightning,replacement,renamed
+retworkx,rustworkx,replacement,renamed
+pymatgen,pymatgen-core,replacement,split into core package
+tensorflow-estimator,requests,side_effect,unrelated
