@@ -6,58 +6,66 @@ The system has four parts: a dataset pipeline, a sequence model (`src/`), an API
 
 ---
 
-## Quick start
+## Quick start (about 5 minutes, no retraining)
 
-Requires Python 3.10+.
+The processed dataset (`data/processed/`) and the trained checkpoint (`models/ckpt_loo_c4.pt`) are in the repository,
+so the system runs right after installation. Requires Python 3.10+.
 
-```powershell
+```bash
 git clone https://github.com/BoutalebAnas/Agent-Quiver.git
 cd Agent-Quiver
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt    # 2-3 minutes (torch)
 ```
 
-### 1. Data
+**Terminal 1, the API** (http://127.0.0.1:8000/docs):
 
-Execute `01_extract_data.ipynb` first (GitHub API calls, about 1–2 hours of GraphQL quota), then `02_prepare_dataset.ipynb`.
-**Outputs:** raw tables in `data/interim/` (`dep_events.csv`, `packages.csv`, `stars.csv`...), then processed data in `data/processed/` (`interactions.csv`, `items.csv`, `users.csv`, `dataset_info.json`...).
-
-### 2. Model checkpoint
-
-Train the model (about 16 minutes on CPU) with:
-
+```bash
+AQ_RECOMMENDER=model python -m uvicorn src.api.main:app        # macOS / Linux
+```
 ```powershell
-python -m src.train --protocol loo --no_ranker
+$env:AQ_RECOMMENDER="model"; python -m uvicorn src.api.main:app  # Windows PowerShell
 ```
 
-The checkpoint is written to `models/`.
+**Terminal 2, the front-end** (http://localhost:8501), same folder, environment activated:
 
-### 3. Run the system (two terminals)
-
-Terminal 1, the API (http://127.0.0.1:8000/docs):
-
-```powershell
-$env:AQ_RECOMMENDER="model"
-python -m uvicorn src.api.main:app
-```
-macOS/Linux: `AQ_RECOMMENDER=model python -m uvicorn src.api.main:app`
-
-Terminal 2, the front-end (http://localhost:8501):
-
-```powershell
+```bash
 python -m streamlit run app/streamlit_app.py
 ```
 
-Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in the database.
+Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in SQLite.
 
-Check that it really runs the model: `GET /health` must return `"is_mock": false` and `"model_version": "ckpt_loo_c4.pt"`.
+Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
+`"model_version": "ckpt_loo_c4.pt"`.
 
-### 4. Tests
+**Tests:** `python -m pytest -q` (28 tests: data cleaning, evaluation, API, database, front-end).
 
-```powershell
-python -m pytest -q
+---
+
+## Rebuild everything from scratch (optional)
+
+### 1. Data
+
+The dataset merges two sources: PyPI projects (about 90% of the interactions) and GitHub developers.
+
+| Step | Command | Time |
+|---|---|---|
+| GitHub developers | run `notebooks/01_extract_data.ipynb`, then `notebooks/02_prepare_dataset.ipynb` | 1-2 h (GraphQL quota) |
+| PyPI histories | `python -m src.pypi_pipeline.collect_pypi --top 15000 --workers 32` | ~20 min |
+| Repair missing metadata | `python -m src.pypi_pipeline.repair_metadata --workers 32` | ~15 min |
+| Merge both sources | `python -m src.pypi_pipeline.merge_datasets --github-dir <GitHub dataset CSVs>` | ~1 min |
+| Convert to the training format | `python -m scripts.convert_new_data data/interim/combined data/processed keep_undated` | ~1 min |
+
+Details of the PyPI cleaning (releases without metadata, dated adoptions, "better tool" migrations):
+[`src/pypi_pipeline/README.md`](src/pypi_pipeline/README.md).
+
+### 2. Model checkpoint
+
+```bash
+python -m src.train --protocol loo --no_ranker        # ~16 min on CPU, writes models/ckpt_loo_c4.pt
+python -m src.train --protocol temporal --no_ranker   # temporal evaluation
 ```
-
-Tests that need the checkpoint or the data are skipped when those are missing; make sure they are not skipped on your machine.
 
 ---
 
@@ -90,14 +98,15 @@ The feedback is stored for a future training run; nothing reads it back into the
 Two protocols, both over the full catalogue, with 95% bootstrap intervals:
 
 - **LOO**: each user's last dated adoption is the test target, the one before it the validation target.
-- **Temporal**: train before 2025-10-17, validation until 2026-05-12, test after.
+- **Temporal**: train before 2025-10-17, validation until 2026-05-12, test after. Undated rows (for example a project's initial
+  dependencies) are never targets; those dated after the train cut are left out (`none`), so the model never trains on the future.
 
 Results on the merged dataset (44,703 adoptions, 3,840 users, 7,561 packages, 99.85% sparse):
 
 | | LOO Recall@20 | LOO NDCG@10 | Temporal Recall@20 | Temporal NDCG@10 |
 |---|---|---|---|---|
-| Most popular | 0.278 [0.264, 0.292] | 0.095 | 0.186 [0.175, 0.197] | 0.063 |
-| Retriever (final) | **0.316** [0.302, 0.331] | **0.139** [0.130, 0.147] | 0.179 [0.167, 0.191] | 0.071 [0.065, 0.078] |
+| Most popular | 0.278 [0.264, 0.292] | 0.095 | 0.189 [0.176, 0.202] | 0.068 [0.061, 0.075] |
+| Retriever (final) | **0.316** [0.302, 0.331] | **0.139** [0.130, 0.147] | 0.188 [0.175, 0.200] | 0.071 [0.064, 0.078] |
 
 - In LOO the model is significantly better than popularity.
 - In the temporal protocol it is tied with popularity in Recall@20.
@@ -122,7 +131,7 @@ python -m src.train --protocol loo --no_ranker
 python -m src.train --protocol temporal --no_ranker
 python -m src.ablate retr                                    # ablations without the ranker
 python -m src.manual_check models/ckpt_loo_c4.pt             # what each interest looks at
-python scripts/measure_latency.py                            # API running; median 0.08 s, max 0.19 s
+python scripts/measure_latency.py                            # API running; median 0.026 s, max 0.105 s (reports/week3/latency.csv)
 ```
 
 ---
