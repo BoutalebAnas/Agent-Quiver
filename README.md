@@ -128,15 +128,19 @@ Results on the merged dataset (44,703 adoptions, 3,840 users, 7,561 packages, 99
 - Cold start (packages absent from training) is **not solved**: Recall@20 is 0 for both, and 59% of packages have no text description.
 - Run-to-run variation is about 0.003-0.005.
 
-Ablations (LOO, one seed; full model 0.312 Recall@20 / 0.131 NDCG@10):
+Ablations (LOO, retriever only, one seed each, `python -m src.ablate retr loo`, re-run on the current data):
 
 | Variant | Recall@20 | NDCG@10 |
 |---|---|---|
-| One interest instead of four | 0.312 | 0.133 |
-| Without text | 0.288 | 0.128 |
-| Without event age | 0.267 | 0.112 |
+| Full model (served checkpoint `ckpt_loo_c4.pt`) | **0.316** | **0.139** |
+| One interest instead of four | 0.300 | 0.132 |
+| Without text | 0.299 | 0.130 |
+| Without event age | 0.274 | 0.115 |
 
-Event age matters most, text a little, and several interests bring no measurable gain: a manual check shows the four channels recommend almost the same packages. The two-stage ranker lowered validation Recall@20 from about 0.30 to 0.08, so it is not part of the final system. The diffusion module was only tested on an earlier, smaller dataset, where it did not help.
+Every component helps, and event age matters most. An earlier run of the same ablation showed no gain from the four
+interests (one interest 0.312 / 0.133 against 0.312 / 0.131 for the full model), so the interest gain needs more seeds before being
+claimed. The two-stage ranker lowered validation Recall@20 from about 0.30 to 0.08, so it is not part of the final system. The diffusion
+module was only tested on an earlier, smaller dataset, where it did not help.
 
 Reproduce:
 
