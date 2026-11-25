@@ -96,6 +96,18 @@ if res:
                     col.button(label, key=f"{action}-{item['repo_id']}", on_click=rate,
                                args=(user, item["repo_id"], it["interest_id"], rec["rank"], action, label))
 
+    # better tools: replacements that other projects actually made
+    bt = call("GET", "/better_tools", params={"username": user})
+    if bt.status_code == 200 and bt.json():
+        with st.container(border=True):
+            st.markdown("#### Better tools: what other projects switched to")
+            st.caption("Packages you still use that other projects replaced in a single release "
+                       "(learned from PyPI release histories, each rule checked by hand).")
+            for t in bt.json()[:6]:
+                old, new = t["replace"].split(":", 1)[-1], t["with"].split(":", 1)[-1]
+                st.markdown(f"**{old}** → **{new}** · {t['projects']} projects made this switch  \n"
+                            f"<small>{t['note']}</small>", unsafe_allow_html=True)
+
     # live proof that feedback reaches the database
     st.divider()
     st.markdown("#### Feedback recorded in the database")

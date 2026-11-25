@@ -74,3 +74,14 @@ class Health(BaseModel):
     status: str
     model_version: str
     is_mock: bool
+
+
+class BetterTool(BaseModel):
+    """A replacement that other projects made: they dropped `replace` and adopted `with_` in one release."""
+    replace: str = Field(..., examples=["pypi:toml"])
+    with_: str = Field(..., alias="with", examples=["pypi:tomli"])
+    projects: int = Field(..., description="Number of projects that made this switch")
+    lift: float = Field(..., description="How much dropping `replace` raises the chance of adopting `with`")
+    note: str = ""
+
+    model_config = {"populate_by_name": True}

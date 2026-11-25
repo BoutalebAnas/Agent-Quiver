@@ -1,0 +1,46 @@
+from,to,support,lift,coexist,verdict,note
+pypi:msrestazure,pypi:azure-mgmt-core,54,1273.0,0.02,replacement,Azure SDK track 1 -> track 2
+pypi:msrest,pypi:typing-extensions,52,107.0,0.44,side_effect,dropped with the Azure track 2 move; not the same role
+pypi:httpx,pypi:httpx2,51,808.6,0.23,replacement,"successor by the pydantic team (""The next generation HTTP client""; released May 2026)"
+pypi:toml,pypi:tomli,36,559.6,0.15,replacement,TOML parser
+pypi:parver,pypi:packaging,32,356.1,0.0,replacement,version parsing moved to packaging.version
+pypi:azure-mgmt-nspkg,pypi:isodate,28,526.8,0.0,side_effect,Azure namespace package removed; isodate unrelated
+pypi:appdirs,pypi:platformdirs,27,1320.7,0.06,replacement,maintained fork
+pypi:sklearn,pypi:scikit-learn,12,2036.6,0.12,replacement,deprecated alias -> real name
+pypi:alibabacloud-openapi-util,pypi:darabonba-core,11,11079.8,0.07,replacement,Alibaba SDK consolidation
+pypi:alibabacloud-tea-util,pypi:darabonba-core,11,11079.8,0.13,replacement,Alibaba SDK consolidation
+pypi:pytz,pypi:tzdata,11,374.1,0.35,replacement,zoneinfo + tzdata replace pytz
+pypi:alibabacloud-endpoint-util,pypi:darabonba-core,10,10072.5,0.0,replacement,Alibaba SDK consolidation
+pypi:opencv-python,pypi:opencv-python-headless,9,2816.2,0.05,replacement,same library without GUI
+pypi:pynvml,pypi:nvidia-ml-py,7,10184.5,0.22,replacement,pynvml became a shim of the official package
+pypi:python-jose,pypi:pyjwt,7,1165.9,0.18,replacement,JWT library
+pypi:pytz,pypi:backports-zoneinfo,7,569.3,0.23,replacement,zoneinfo backport replaces pytz
+pypi:msgpack-python,pypi:msgpack,6,4863.6,0.0,replacement,renamed
+pypi:pytoml,pypi:toml,6,2986.4,0.0,replacement,TOML parser
+pypi:bs4,pypi:beautifulsoup4,6,2075.9,0.42,replacement,placeholder name -> real package
+pypi:qiskit-terra,pypi:qiskit,5,20265.0,0.0,replacement,renamed
+pypi:lark-parser,pypi:lark,5,3684.5,0.0,replacement,renamed
+pypi:entrypoints,pypi:importlib-metadata,5,329.3,0.25,replacement,entry points via importlib.metadata
+pypi:toml,pypi:tomlkit,5,315.2,0.33,replacement,TOML read/write
+pypi:ntlm-auth,pypi:pyspnego,4,19454.4,0.0,replacement,NTLM/SPNEGO auth
+pypi:nvidia-cuda-nvdisasm,pypi:cuda-bindings,4,10639.1,0.0,side_effect,CUDA packaging reorganisation; different component
+pypi:pycryptodome,pypi:pycryptodomex,4,8010.6,0.17,replacement,same library separate namespace
+pypi:docopt,pypi:docopt-ng,4,7565.6,0.0,replacement,maintained fork
+pypi:pypiwin32,pypi:pywin32,4,4863.6,0.29,replacement,placeholder -> real package
+pypi:zstandard,pypi:backports-zstd,4,4863.6,0.0,replacement,stdlib zstd backport
+pypi:chardet,pypi:charset-normalizer,4,664.9,0.43,replacement,encoding detection
+pypi:htmlmin,pypi:htmlmin2,3,28371.0,0.0,replacement,maintained fork
+pypi:retworkx,pypi:rustworkx,3,25533.9,0.0,replacement,renamed
+pypi:pymatgen,pypi:pymatgen-core,3,12159.0,0.33,replacement,split into core package
+pypi:retry,pypi:retry2,3,11606.3,0.0,replacement,maintained fork
+pypi:pyrsistent,pypi:jsonschema-specifications,3,11348.4,0.0,side_effect,jsonschema 4.18 internals
+pypi:pytorch-lightning,pypi:lightning,3,10422.0,0.17,replacement,renamed
+pypi:ipaddr,pypi:ipaddress,3,9457.0,0.25,replacement,IP addresses
+pypi:pyrsistent,pypi:rpds-py,3,7092.8,0.4,replacement,persistent data structures (what jsonschema switched to)
+pypi:bleach,pypi:nh3,3,7092.8,0.0,replacement,HTML sanitizer
+pypi:pyrsistent,pypi:referencing,3,3152.3,0.0,side_effect,jsonschema 4.18 internals
+pypi:typing-inspect,pypi:typing-inspection,3,3095.0,0.0,replacement,typing introspection
+pypi:dateutil,pypi:python-dateutil,3,1182.1,0.0,replacement,wrong name -> real package
+pypi:retry,pypi:tenacity,3,692.9,0.5,replacement,retry library
+pypi:tensorflow-estimator,pypi:requests,3,506.6,0.0,side_effect,unrelated
+pypi:backoff,pypi:tenacity,3,346.5,0.4,replacement,retry library

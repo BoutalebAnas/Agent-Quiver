@@ -12,9 +12,10 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException, Query
 
+from .better_tools import BetterTools
 from .db import InteractionStore
 from .recommender import UnknownUserError, get_recommender
-from .schemas import Health, InteractionIn, InteractionOut, RecommendResponse
+from .schemas import BetterTool, Health, InteractionIn, InteractionOut, RecommendResponse
 
 # Any dataset id (GitHub login, PyPI/npm project...): 1-100 printable chars, no spaces.
 # Unknown users are rejected later with a 404 by the recommender.
@@ -30,6 +31,9 @@ app = FastAPI(
 
 # Feedback is stored in SQLite (env AQ_DB, default data/agentquiver.db)
 store = InteractionStore()
+
+# "Better tools": replacements other projects made (data/processed/migrations.csv)
+better_tools = BetterTools()
 
 
 @app.get("/health", response_model=Health, tags=["system"])
@@ -55,6 +59,17 @@ def recommend(
         score_type=recommender.score_type,
         generated_at=datetime.now(timezone.utc), interests=interests,
     )
+
+
+@app.get("/better_tools", response_model=List[BetterTool], response_model_by_alias=True, tags=["recommendations"])
+def get_better_tools(username: str = Query(..., description="User id, e.g. pypi:prefect")) -> List[BetterTool]:
+    """Packages the user still uses that other projects replaced, with what they switched to."""
+    if not _GH_USER.match(username):
+        raise HTTPException(status_code=422, detail="Invalid username")
+    try:
+        return [BetterTool(**s) for s in better_tools.suggest(username)]
+    except UnknownUserError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.get("/users", response_model=List[str], tags=["recommendations"])
