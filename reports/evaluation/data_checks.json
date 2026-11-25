@@ -10,9 +10,9 @@
     },
     "note": "Only structural sample checks; does not audit feature fitting, text preprocessing, or model selection.",
     "sample_counts": {
-      "train": 33183,
-      "valid": 3839,
-      "test": 3840
+      "train": 29609,
+      "valid": 3530,
+      "test": 3531
     }
   },
   "temporal": {
@@ -26,9 +26,9 @@
     },
     "note": "Only structural sample checks; does not audit feature fitting, text preprocessing, or model selection.",
     "sample_counts": {
-      "train": 32403,
-      "valid": 2893,
-      "test": 4190
+      "train": 27005,
+      "valid": 2047,
+      "test": 1881
     }
   }
 }

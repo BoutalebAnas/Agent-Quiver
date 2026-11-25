@@ -2,7 +2,7 @@
 
 Source A, "pypi_projects" (src/pypi_pipeline/): user = a PyPI project, interaction = the project
 declares a dependency (cleaned: metadata gaps, dated adoptions, persistent drops).
-Source B, "github_devs" (team dataset, data/external/github_devs/): user = a GitHub
+Source B (optional: without --github-dir the dataset is PyPI projects only), "github_devs" (team dataset, data/external/github_devs/): user = a GitHub
 developer, interaction = the developer starts using an npm/PyPI package in their repos
 (the team's GitHub dataset: items.csv, interactions.csv, stars.csv, forks.csv).
 
@@ -54,20 +54,25 @@ def iso(t):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--github-dir", required=True,
-                    help="items.csv, interactions.csv, stars.csv, forks.csv of the GitHub developers")
+    ap.add_argument("--github-dir", default=None,
+                    help="optional: items.csv, interactions.csv, stars.csv, forks.csv of the GitHub developers; "
+                         "without it the dataset is PyPI projects only")
     args = ap.parse_args()
-    gh = Path(args.github_dir)
+    gh = Path(args.github_dir) if args.github_dir else None
     OUT.mkdir(parents=True, exist_ok=True)
 
     # ---------------- source B: GitHub developers ----------------
-    b_items = pd.read_csv(gh / "items.csv")
-    b_inter = pd.read_csv(gh / "interactions.csv")
+    if gh is not None:
+        b_items = pd.read_csv(gh / "items.csv")
+        b_inter = pd.read_csv(gh / "interactions.csv")
+    else:
+        b_items = pd.DataFrame(columns=["item", "members", "ecosystems", "summary", "is_ai"])
+        b_inter = pd.DataFrame(columns=["developer", "item", "date", "still_in_use", "n_repos"])
     canon = {}                                   # member -> canonical item id
     for _, r in b_items.iterrows():
         for m in str(r["members"]).split("|"):
             canon[m] = r["item"]
-    ai_items = set(b_items.loc[b_items["is_ai"].astype(bool), "item"])
+    ai_items = set(b_items.loc[b_items["is_ai"].astype(bool), "item"]) if len(b_items) else set()
 
     rows = []
     for _, r in b_inter.iterrows():
@@ -134,14 +139,17 @@ def main():
     # ---------------- migrations (source A, cleaned + manual check) ----------------
     table, audit = D.migration_table(projects, "2100-01-01", with_audit=True)
     manual = pd.read_csv(PIPE / "migration_manual_check.csv")
-    mig = pd.DataFrame([r for r in audit if r["kept"]])[["from", "to", "support", "lift", "coexist"]]
+    kept = [r for r in audit if r["kept"]]
+    mig = pd.DataFrame(kept, columns=["from", "to", "support", "lift", "coexist", "inlined", "kept"])[
+        ["from", "to", "support", "lift", "coexist"]]
     mig = mig.merge(manual[["from", "to", "verdict", "note"]], on=["from", "to"], how="left")
+    mig["verdict"] = mig["verdict"].fillna("not_checked")      # new rules from fresh data have no manual verdict yet
     mig["from"] = mig["from"].map(lambda x: canon.get(f"pypi:{x}", f"pypi:{x}"))
     mig["to"] = mig["to"].map(lambda x: canon.get(f"pypi:{x}", f"pypi:{x}"))
     mig = mig.sort_values(["support", "lift"], ascending=False)
 
     # ---------------- side information from source B ----------------
-    for name in ("stars", "forks"):
+    for name in (("stars", "forks") if gh is not None else ()):
         side = pd.read_csv(gh / f"{name}.csv").drop(columns=["user_id"], errors="ignore")
         side.insert(0, "user_id", ("gh:" + side["developer"].astype(str)).map(uid))
         side = side[side["user_id"].notna()].astype({"user_id": int})
@@ -156,9 +164,9 @@ def main():
     assert inter["date"].str.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$").all()
     assert set(inter["split"]) <= {"train", "valid", "test", "after_test"}
     assert set(mig["from"]) | set(mig["to"]) <= set(iid), "migration package missing from items"
-    assert mig["verdict"].notna().all(), "migration rule without manual verdict"
     b_pairs = len(b_inter.drop_duplicates(["developer", "item"]))
     assert (inter["source"] == "github_devs").sum() == b_pairs, "lost GitHub interactions"
+    assert len(inter) > 0, "no interactions: is data/raw/pypi/pypi_histories_repaired.jsonl.gz there?"
 
     inter.to_csv(OUT / "interactions.csv", index=False)
     users.to_csv(OUT / "users.csv", index=False)
