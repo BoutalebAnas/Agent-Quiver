@@ -12,9 +12,12 @@ from typing import List
 
 from fastapi import FastAPI, HTTPException, Query
 
+from .better_tools import BetterTools
 from .db import InteractionStore
+from .stack import Stacks, parse_packages
 from .recommender import UnknownUserError, get_recommender
-from .schemas import Health, InteractionIn, InteractionOut, RecommendResponse
+from .schemas import (BetterTool, Health, InteractionIn, InteractionOut, RecommendResponse, StackIn,
+                      StackItem, StackResponse)
 
 # Any dataset id (GitHub login, PyPI/npm project...): 1-100 printable chars, no spaces.
 # Unknown users are rejected later with a 404 by the recommender.
@@ -30,6 +33,12 @@ app = FastAPI(
 
 # Feedback is stored in SQLite (env AQ_DB, default data/agentquiver.db)
 store = InteractionStore()
+
+# "Better tools": replacements other projects made (data/processed/migrations.csv)
+better_tools = BetterTools()
+
+# Users' histories and package-name lookup (data/processed/interactions.csv, items.csv)
+stacks = Stacks()
 
 
 @app.get("/health", response_model=Health, tags=["system"])
@@ -55,6 +64,46 @@ def recommend(
         score_type=recommender.score_type,
         generated_at=datetime.now(timezone.utc), interests=interests,
     )
+
+
+@app.get("/better_tools", response_model=List[BetterTool], response_model_by_alias=True, tags=["recommendations"])
+def get_better_tools(username: str = Query(..., description="User id, e.g. pypi:prefect")) -> List[BetterTool]:
+    """Packages the user still uses that other projects replaced, with what they switched to."""
+    if not _GH_USER.match(username):
+        raise HTTPException(status_code=422, detail="Invalid username")
+    try:
+        return [BetterTool(**s) for s in better_tools.suggest(username)]
+    except UnknownUserError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/history", response_model=List[StackItem], tags=["recommendations"])
+def history(username: str = Query(..., description="User id, e.g. pypi:prefect")) -> List[StackItem]:
+    """The packages in the user's history, oldest first (what the model reads)."""
+    if not _GH_USER.match(username):
+        raise HTTPException(status_code=422, detail="Invalid username")
+    try:
+        return [StackItem(**h) for h in stacks.history(username)]
+    except UnknownUserError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/recommend_stack", response_model=StackResponse, response_model_by_alias=True, tags=["recommendations"])
+def recommend_stack(body: StackIn) -> StackResponse:
+    """Recommendations for any stack: paste a requirements.txt, a package.json or package names.
+    Known packages become the history (all treated as just adopted); unknown names are reported."""
+    if not hasattr(recommender, "recommend_items"):
+        raise HTTPException(status_code=503, detail="Needs the trained model (start the API with AQ_RECOMMENDER=model)")
+    matched, unknown = stacks.match(parse_packages(body.text))
+    if not matched:
+        raise HTTPException(status_code=404, detail="None of these packages is in our catalogue")
+    try:
+        interests = recommender.recommend_items(matched, body.k)
+    except UnknownUserError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return StackResponse(matched=matched, unknown=unknown, model_version=recommender.model_version,
+                         is_mock=recommender.is_mock, score_type=recommender.score_type, interests=interests,
+                         better_tools=[BetterTool(**t) for t in better_tools.suggest_for_items(matched)])
 
 
 @app.get("/users", response_model=List[str], tags=["recommendations"])

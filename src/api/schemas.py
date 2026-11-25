@@ -74,3 +74,39 @@ class Health(BaseModel):
     status: str
     model_version: str
     is_mock: bool
+
+
+class BetterTool(BaseModel):
+    """A replacement that other projects made: they dropped `replace` and adopted `with_` in one release."""
+    replace: str = Field(..., examples=["pypi:toml"])
+    with_: str = Field(..., alias="with", examples=["pypi:tomli"])
+    projects: int = Field(..., description="Number of projects that made this switch")
+    lift: float = Field(..., description="How much dropping `replace` raises the chance of adopting `with`")
+    note: str = ""
+
+    model_config = {"populate_by_name": True}
+
+
+class StackItem(BaseModel):
+    """One package in a user's history (the "Your stack" panel)."""
+    package: str = Field(..., examples=["pypi:langchain-core"])
+    date: str = Field(..., description="Adoption date (YYYY-MM-DD)")
+    dated: bool = Field(..., description="False when the exact adoption date is unknown (first release, metadata gap)")
+    still_in_use: bool
+    description: Optional[str] = None
+
+
+class StackIn(BaseModel):
+    """A pasted requirements.txt, package.json, or a list of package names."""
+    text: str = Field(..., max_length=20000, examples=["langchain-core\ngoogle-cloud-storage\nhttpx"])
+    k: int = Field(10, ge=1, le=50)
+
+
+class StackResponse(BaseModel):
+    matched: List[str] = Field(..., description="Packages found in the catalogue, used as the history")
+    unknown: List[str] = Field(..., description="Names not in the catalogue (ignored)")
+    model_version: str
+    is_mock: bool
+    score_type: str
+    interests: List[Interest]
+    better_tools: List[BetterTool]
