@@ -237,8 +237,11 @@ data/interim/
 *.json.gz
 *.pt
 *.zip
-models/
+models/*
 results/
 data/new_raw/
 data/processed/processed/
 data/agentquiver.db
+
+# The served checkpoint is shipped so the system runs without retraining (3 MB)
+!models/ckpt_loo_c4.pt
