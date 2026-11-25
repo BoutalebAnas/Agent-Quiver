@@ -39,7 +39,7 @@ Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the
 Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
 `"model_version": "ckpt_loo_c4.pt"`.
 
-**Tests:** `python -m pytest -q` (28 tests: data cleaning, evaluation, API, database, front-end).
+**Tests:** `python -m pytest -q` (28 tests: data cleaning, evaluation, model, API, database).
 
 ---
 
@@ -54,8 +54,8 @@ The dataset merges two sources: PyPI projects (about 90% of the interactions) an
 | GitHub developers | run `notebooks/01_extract_data.ipynb`, then `notebooks/02_prepare_dataset.ipynb` | 1-2 h (GraphQL quota) |
 | PyPI histories | `python -m src.pypi_pipeline.collect_pypi --top 15000 --workers 32` | ~20 min |
 | Repair missing metadata | `python -m src.pypi_pipeline.repair_metadata --workers 32` | ~15 min |
-| Merge both sources | `python -m src.pypi_pipeline.merge_datasets --github-dir <GitHub dataset CSVs>` | ~1 min |
-| Convert to the training format | `python -m scripts.convert_new_data data/interim/combined data/processed keep_undated` | ~1 min |
+| Merge both sources | `python -m src.pypi_pipeline.merge_datasets --github-dir data/processed` (reads the GitHub files written by notebook 02) | ~1 min |
+| Convert to the training format | `python -m scripts.convert_new_data data/interim/combined data/processed keep_undated` (overwrites `interactions.csv` and `items.csv` with the merged data) | ~1 min |
 
 Details of the PyPI cleaning (releases without metadata, dated adoptions, "better tool" migrations):
 [`src/pypi_pipeline/README.md`](src/pypi_pipeline/README.md).
