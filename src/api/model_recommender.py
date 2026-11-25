@@ -81,7 +81,8 @@ class ModelRecommender:
         instant = pd.Timestamp.now(tz="UTC")
         exclude = set(exclude)
         try:
-            candidates = self.p.predict(username, k=min(50, k + len(exclude)), as_of=instant.isoformat())
+            candidates = self.p.predict(username, k=min(50, k + len(exclude)), as_of=instant.isoformat(),
+                                        same_ecosystem=True)
         except ValueError as e:                       # unknown user / empty history
             raise UnknownUserError(str(e)) from e
 

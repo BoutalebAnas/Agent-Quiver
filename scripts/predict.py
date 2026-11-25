@@ -53,12 +53,18 @@ class ModelPredictor:
         self.item_by_id = self.items.set_index("item_id")
         self.version = self.checkpoint.name
         self.n_items = n_items
+        # ecosystem of every item, aligned with the model's shifted ids (0 = padding): "pypi", "npm" or "tool"
+        self.item_eco = np.full(n_items + 1, "", dtype=object)
+        self.item_eco[self.items["item_id"].to_numpy() + 1] = self.items["item"].str.split(":").str[0].to_numpy()
 
     @torch.no_grad()
-    def predict(self, username: str, k: int = 10, as_of: str | None = None) -> list[dict]:
+    def predict(self, username: str, k: int = 10, as_of: str | None = None,
+                same_ecosystem: bool = False) -> list[dict]:
         """Recommend k previously unseen *items* using current available history.
 
         ``as_of`` can bound the history (ISO timestamp) to avoid look-ahead for a demo.
+        ``same_ecosystem`` keeps only items from the ecosystems already in the user's history
+        (plus cross-ecosystem ``tool:`` items), so a PyPI project is not offered npm packages.
         This is serving-style inference, not an offline test-set measurement.
         """
         if not 1 <= k <= 50:
@@ -85,7 +91,11 @@ class ModelPredictor:
         retriever_scores[:, 0] = float("-inf")
         if seen:
             retriever_scores[:, sorted(seen)] = float("-inf")
-        candidates = min(100, self.n_items - len(seen))
+        if same_ecosystem:
+            allowed = set(self.item_eco[sorted(seen)]) | {"tool"}
+            outside = torch.from_numpy(~np.isin(self.item_eco, list(allowed)))
+            retriever_scores[:, outside] = float("-inf")
+        candidates = min(100, int(torch.isfinite(retriever_scores).sum()))
         if candidates <= 0:
             return []
         candidate_ids = retriever_scores.topk(candidates, dim=1).indices
