@@ -49,12 +49,12 @@ python -m streamlit run app/streamlit_app.py             # terminal 2 (run `sour
 
 ### Use it
 
-Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in SQLite.
+Pick a user (or type one, e.g. `pypi:prefect`), click **Recommend**, then **Useful / Not useful**. Below the recommendations, *Better tools* lists the replacements other projects made; the table at the bottom shows the feedback stored in SQLite.
 
 Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
 `"model_version": "ckpt_loo_c4.pt"`.
 
-**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 28 tests: data cleaning, evaluation, model, API, database).
+**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 32 tests: data cleaning, evaluation, model, API, database, better tools).
 
 ---
 
@@ -90,7 +90,8 @@ python -m src.train --protocol temporal --no_ranker   # temporal evaluation
 |---|---|
 | `GET /health` | Status, model version, `is_mock` |
 | `GET /users?limit=` | Users the model can serve (most active first) |
-| `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest. User ids look like `pypi:<project>` or `gh:<login>`; an unknown user returns 404 |
+| `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest, restricted to the ecosystems already in the user's history (a PyPI project is not offered npm packages; cross-ecosystem `tool:` items stay). User ids look like `pypi:<project>` or `gh:<login>`; an unknown user returns 404 |
+| `GET /better_tools?username=` | Packages the user still uses that other projects replaced in one release, with the replacement most of them chose (`data/processed/migrations.csv`, rules checked by hand) |
 | `POST /log_interaction` | Stores `user_id, repo_id, interest_id, rank, action` in SQLite (`data/agentquiver.db`, override with the `AQ_DB` variable) |
 | `GET /interactions?user_id=&limit=` | Reads the stored feedback back (newest first) |
 
@@ -157,7 +158,7 @@ python scripts/measure_latency.py                            # API running; medi
 
 ## Known limitations
 
-- Recommendations can come from another ecosystem than the user's (a PyPI project may receive npm packages).
+- The API keeps recommendations in the user's ecosystems. Measured offline, this filter raises temporal Recall@20 for both the model (0.189 → 0.207) and popularity (0.189 → 0.215), so it improves the product but does not change the comparison.
 - Interest explanations can rely on infrastructure dependencies or on the project's own sub-packages.
 - Some packages have no description; `stars`, `language` and `created_at` are empty; `is_new` is always `false`.
 - Only users present in the dataset can be served (no live GitHub lookup yet).
