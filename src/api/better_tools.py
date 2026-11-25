@@ -27,7 +27,13 @@ class BetterTools:
         user = username.lower()
         if user not in self.history:
             raise UnknownUserError(f"Unknown user {username!r}: not present in the dataset")
-        history, in_use = self.history[user], self.in_use.get(user, set())
+        return self._rules_for(in_use=self.in_use.get(user, set()), history=self.history[user])
+
+    def suggest_for_items(self, items: List[str]) -> List[dict]:
+        """Same rules for an ad-hoc stack (every package of the list counts as in use)."""
+        return self._rules_for(in_use=set(items), history=set(items))
+
+    def _rules_for(self, in_use: set, history: set) -> List[dict]:
         out, done = [], set()
         for r in self.rules.itertuples(index=False):           # columns: from, to, support, lift, ...
             # one suggestion per package: the replacement most projects chose

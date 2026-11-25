@@ -49,12 +49,15 @@ python -m streamlit run app/streamlit_app.py             # terminal 2 (run `sour
 
 ### Use it
 
-Pick a user (or type one, e.g. `pypi:prefect`), click **Recommend**, then **Useful / Not useful**. Below the recommendations, *Better tools* lists the replacements other projects made; the table at the bottom shows the feedback stored in SQLite.
+Three tabs:
+- **Explore a project**: click a demo project (or pick / type a user id, e.g. `pypi:prefect`). You see the project's stack (what the model reads), its next packages grouped by interest, the *Better tools* other projects switched to, and thumbs up / down saved in SQLite (expander at the bottom).
+- **Paste your stack**: paste a `requirements.txt`, a `package.json` or package names; known packages become the history and you get recommendations and better tools for a project the dataset has never seen.
+- **How it works**: data, model, evaluation, system, and the API routes.
 
 Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
 `"model_version": "ckpt_loo_c4.pt"`.
 
-**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 32 tests: data cleaning, evaluation, model, API, database, better tools).
+**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 37 tests: data cleaning, evaluation, model, API, database, better tools, stack parsing).
 
 ---
 
@@ -91,6 +94,8 @@ python -m src.train --protocol temporal --no_ranker   # temporal evaluation
 | `GET /health` | Status, model version, `is_mock` |
 | `GET /users?limit=` | Users the model can serve (most active first) |
 | `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest, restricted to the ecosystems already in the user's history (a PyPI project is not offered npm packages; cross-ecosystem `tool:` items stay). User ids look like `pypi:<project>` or `gh:<login>`; an unknown user returns 404 |
+| `GET /history?username=` | The user's adoptions, oldest first (package, date, still in use, description): what the model reads |
+| `POST /recommend_stack` | Body `{"text": "<requirements.txt, package.json or names>", "k": 10}`. Same recommendations and better tools for any stack; returns the matched and unknown names. Needs `AQ_RECOMMENDER=model` (503 otherwise) |
 | `GET /better_tools?username=` | Packages the user still uses that other projects replaced in one release, with the replacement most of them chose (`data/processed/migrations.csv`, rules checked by hand) |
 | `POST /log_interaction` | Stores `user_id, repo_id, interest_id, rank, action` in SQLite (`data/agentquiver.db`, override with the `AQ_DB` variable) |
 | `GET /interactions?user_id=&limit=` | Reads the stored feedback back (newest first) |
