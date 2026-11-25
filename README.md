@@ -9,37 +9,52 @@ The system has four parts: a dataset pipeline, a sequence model (`src/`), an API
 ## Quick start (about 5 minutes, no retraining)
 
 The processed dataset (`data/processed/`) and the trained checkpoint (`models/ckpt_loo_c4.pt`) are in the repository,
-so the system runs right after installation. Requires Python 3.10+.
+so the system runs right after installation. Requires Python 3.10+ (tested with Python 3.13).
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/BoutalebAnas/Agent-Quiver.git
+cd Agent-Quiver
+python -m venv .venv                                   # or: py -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt  # 2-3 minutes (torch)
+```
+
+Terminal 1, the API (http://127.0.0.1:8000/docs), in the `Agent-Quiver` folder:
+
+```powershell
+$env:AQ_RECOMMENDER="model"; .venv\Scripts\python -m uvicorn src.api.main:app
+```
+
+Terminal 2, the front-end (http://localhost:8501), in the `Agent-Quiver` folder:
+
+```powershell
+.venv\Scripts\python -m streamlit run app/streamlit_app.py
+```
+
+These commands call the environment's Python directly, so there is no activation step (PowerShell often blocks
+`Activate.ps1` scripts).
+
+### macOS / Linux
 
 ```bash
 git clone https://github.com/BoutalebAnas/Agent-Quiver.git
 cd Agent-Quiver
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt    # 2-3 minutes (torch)
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt                        # 2-3 minutes (torch)
+AQ_RECOMMENDER=model python -m uvicorn src.api.main:app  # terminal 1, the API
+python -m streamlit run app/streamlit_app.py             # terminal 2 (run `source .venv/bin/activate` first)
 ```
 
-**Terminal 1, the API** (http://127.0.0.1:8000/docs):
-
-```bash
-AQ_RECOMMENDER=model python -m uvicorn src.api.main:app        # macOS / Linux
-```
-```powershell
-$env:AQ_RECOMMENDER="model"; python -m uvicorn src.api.main:app  # Windows PowerShell
-```
-
-**Terminal 2, the front-end** (http://localhost:8501), same folder, environment activated:
-
-```bash
-python -m streamlit run app/streamlit_app.py
-```
+### Use it
 
 Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in SQLite.
 
 Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
 `"model_version": "ckpt_loo_c4.pt"`.
 
-**Tests:** `python -m pytest -q` (28 tests: data cleaning, evaluation, model, API, database).
+**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 28 tests: data cleaning, evaluation, model, API, database).
 
 ---
 
