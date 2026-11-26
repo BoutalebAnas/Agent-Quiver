@@ -1,90 +1,89 @@
 # AgentQuiver
 
-Recommending the next PyPI packages to a Python project, from the dated history of the dependencies it adopted.
+Recommending the next open-source packages (npm / PyPI) to a developer or project, from their dated history of adopted dependencies.
 
 The system has four parts: a dataset pipeline, a sequence model (`src/`), an API with a SQLite feedback log (`src/api/`), and a Streamlit front-end (`app/`).
 
 ---
 
-## Quick start
+## Quick start (about 5 minutes, no retraining)
 
-Requires Python 3.10+.
+The processed dataset (`data/processed/`) and the trained checkpoint (`models/ckpt_loo_c4.pt`) are in the repository,
+so the system runs right after installation. Requires Python 3.10+ (tested with Python 3.13).
+
+### Windows (PowerShell)
 
 ```powershell
 git clone https://github.com/BoutalebAnas/Agent-Quiver.git
 cd Agent-Quiver
-pip install -r requirements.txt
+python -m venv .venv                                   # or: py -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt  # 2-3 minutes (torch)
 ```
+
+Terminal 1, the API (http://127.0.0.1:8000/docs), in the `Agent-Quiver` folder:
+
+```powershell
+$env:AQ_RECOMMENDER="model"; .venv\Scripts\python -m uvicorn src.api.main:app
+```
+
+Terminal 2, the front-end (http://localhost:8501), in the `Agent-Quiver` folder:
+
+```powershell
+.venv\Scripts\python -m streamlit run app/streamlit_app.py
+```
+
+These commands call the environment's Python directly, so there is no activation step (PowerShell often blocks
+`Activate.ps1` scripts).
+
+### macOS / Linux
+
+```bash
+git clone https://github.com/BoutalebAnas/Agent-Quiver.git
+cd Agent-Quiver
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt                        # 2-3 minutes (torch)
+AQ_RECOMMENDER=model python -m uvicorn src.api.main:app  # terminal 1, the API
+python -m streamlit run app/streamlit_app.py             # terminal 2 (run `source .venv/bin/activate` first)
+```
+
+### Use it
+
+Three tabs:
+- **Explore a project**: click a demo project (or pick / type a user id, e.g. `pypi:prefect`). You see the project's stack (what the model reads), its next packages grouped by interest, the *Better tools* other projects switched to, and thumbs up / down saved in SQLite (expander at the bottom).
+- **Paste your stack**: paste a `requirements.txt`, a `package.json` or package names; known packages become the history and you get recommendations and better tools for a project the dataset has never seen.
+- **How it works**: data, model, evaluation, system, and the API routes.
+
+Check that the real model is served: http://127.0.0.1:8000/health must return `"is_mock": false` and
+`"model_version": "ckpt_loo_c4.pt"`.
+
+**Tests:** `python -m pytest -q` (Windows: `.venv\Scripts\python -m pytest -q`; 37 tests: data cleaning, evaluation, model, API, database, better tools, stack parsing).
+
+---
+
+## Rebuild everything from scratch (optional)
 
 ### 1. Data
 
-The data is built from the public PyPI API (no key needed). **A user is a PyPI project, an item is a package it declares as a runtime dependency, an interaction is the first release that declares it** (dated by the upload date of that release). Loading and cleaning take about 1 hour. Datasets are not in Git (`data/raw/` and `data/interim/` are git-ignored).
+The dataset merges two sources: PyPI projects (about 90% of the interactions) and GitHub developers.
 
-```powershell
-pip install requests packaging
-python -m src.pypi_pipeline.collect_pypi --top 15000 --workers 32      # ~40 min, resumes if interrupted
-python -m src.pypi_pipeline.repair_metadata --workers 32               # fill missing dependency lists
-python -m src.pypi_pipeline.merge_datasets                             # clean, dated adoptions -> data/interim/combined
-python -m src.pypi_pipeline.make_processed data/interim/combined data/processed keep_undated
-```
-
-| Step | What it does | Output |
+| Step | Command | Time |
 |---|---|---|
-| `collect_pypi` | For each of the 15,000 most downloaded projects: stable releases since 2016 (40 most recent at most), upload date, runtime dependencies (optional extras excluded). | `data/raw/pypi/pypi_histories.jsonl` |
-| `repair_metadata` | 75,528 releases had no dependency list in the JSON API; 44,764 of them (59%) are recovered from the wheel metadata (PEP 658). | `data/raw/pypi/pypi_histories_repaired.jsonl.gz` |
-| `merge_datasets` | Cleaning rules below, one row per (project, package), `dated` flag, checks that fail loudly. | `data/interim/combined/` |
-| `make_processed` | Keeps users with at least 3 events of which 2 are dated, re-indexes ids, builds the two evaluation splits and checks them. | `data/processed/` |
+| GitHub developers | run `notebooks/01_extract_data.ipynb`, then `notebooks/02_prepare_dataset.ipynb` | 1-2 h (GraphQL quota) |
+| PyPI histories | `python -m src.pypi_pipeline.collect_pypi --top 15000 --workers 32` | ~20 min |
+| Repair missing metadata | `python -m src.pypi_pipeline.repair_metadata --workers 32` | ~15 min |
+| Merge both sources | `python -m src.pypi_pipeline.merge_datasets --github-dir data/processed` (reads the GitHub files written by notebook 02) | ~1 min |
+| Convert to the training format | `python -m scripts.convert_new_data data/interim/combined data/processed keep_undated` (overwrites `interactions.csv` and `items.csv` with the merged data) | ~1 min |
 
-Cleaning rules (`src/pypi_pipeline/pypi_events.py`):
-
-1. **Missing metadata.** The 30,764 releases that stay without a dependency list are skipped and never read as "no dependencies". An empty list between two non-empty releases is treated as a packaging glitch.
-2. **Dated adoptions.** An adoption is dated only if the previous release has metadata. A project's first dependency set and adoptions right after a metadata gap are known but not dated (`dated = False`): they are used as history, **never as targets**. Of 58,512 interactions, 19,140 are dated.
-3. **Real adoptions only.** A package removed and added back later is not counted as a new adoption or a drop.
-4. **Projects.** Only projects that declare at least 3 dependencies are kept: 6,644 projects, 8,507 packages.
-
-`make_processed` then removes 3,113 users with fewer than 3 events or fewer than 2 dated events. **Final dataset: 40,202 interactions, 3,531 users, 7,142 packages, sparsity 0.9984**; 4,533 packages (63%) have no description. The last line of its output should read `FINAL: 40202 interactions | 3531 users | 7142 items` (small differences are normal if PyPI changed since our run).
-
-Evaluation splits built by `make_processed`:
-- **Leave-last-out (LOO):** last dated adoption of each user = test, the one before = validation.
-- **Temporal:** cut dates are the 70% and 85% quantiles of the dated adoptions (2025-11-14 and 2026-06-24 in our run). Undated rows dated after the first cut are dropped (4,615 rows), so training never sees the future. The script stops with an error if a training row is dated after the cut or if a target is undated.
+Details of the PyPI cleaning (releases without metadata, dated adoptions, "better tool" migrations):
+[`src/pypi_pipeline/README.md`](src/pypi_pipeline/README.md).
 
 ### 2. Model checkpoint
 
-Train the model (about 16 minutes on CPU) with:
-
-```powershell
-python -m src.train --protocol loo --no_ranker
+```bash
+python -m src.train --protocol loo --no_ranker        # ~16 min on CPU, writes models/ckpt_loo_c4.pt
+python -m src.train --protocol temporal --no_ranker   # temporal evaluation
 ```
-
-The checkpoint is written to `models/`.
-
-### 3. Run the system (two terminals)
-
-Terminal 1, the API (http://127.0.0.1:8000/docs):
-
-```powershell
-$env:AQ_RECOMMENDER="model"
-python -m uvicorn src.api.main:app
-```
-macOS/Linux: `AQ_RECOMMENDER=model python -m uvicorn src.api.main:app`
-
-Terminal 2, the front-end (http://localhost:8501):
-
-```powershell
-python -m streamlit run app/streamlit_app.py
-```
-
-Pick a user, click **Recommend**, then **Useful / Not useful**. The table at the bottom shows the feedback stored in the database.
-
-Check that it really runs the model: `GET /health` must return `"is_mock": false` and `"model_version": "ckpt_loo_c4.pt"`.
-
-### 4. Tests
-
-```powershell
-python -m pytest -q
-```
-
-Tests that need the checkpoint or the data are skipped when those are missing; make sure they are not skipped on your machine.
 
 ---
 
@@ -94,7 +93,10 @@ Tests that need the checkpoint or the data are skipped when those are missing; m
 |---|---|
 | `GET /health` | Status, model version, `is_mock` |
 | `GET /users?limit=` | Users the model can serve (most active first) |
-| `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest. User ids look like `pypi:<project>`; an unknown user returns 404 |
+| `GET /recommend?username=&k=` | Top-k packages grouped by interest, with an explanation per interest, restricted to the ecosystems already in the user's history (a PyPI project is not offered npm packages; cross-ecosystem `tool:` items stay). User ids look like `pypi:<project>` or `gh:<login>`; an unknown user returns 404 |
+| `GET /history?username=` | The user's adoptions, oldest first (package, date, still in use, description): what the model reads |
+| `POST /recommend_stack` | Body `{"text": "<requirements.txt, package.json or names>", "k": 10}`. Same recommendations and better tools for any stack; returns the matched and unknown names. Needs `AQ_RECOMMENDER=model` (503 otherwise) |
+| `GET /better_tools?username=` | Packages the user still uses that other projects replaced in one release, with the replacement most of them chose (`data/processed/migrations.csv`, rules checked by hand) |
 | `POST /log_interaction` | Stores `user_id, repo_id, interest_id, rank, action` in SQLite (`data/agentquiver.db`, override with the `AQ_DB` variable) |
 | `GET /interactions?user_id=&limit=` | Reads the stored feedback back (newest first) |
 
@@ -114,32 +116,37 @@ The feedback is stored for a future training run; nothing reads it back into the
 
 ## Evaluation
 
-Two protocols, both over the full catalogue, seen items masked, with 95% bootstrap intervals:
+Two protocols, both over the full catalogue, with 95% bootstrap intervals:
 
 - **LOO**: each user's last dated adoption is the test target, the one before it the validation target.
-- **Temporal**: train before 2025-11-14, validation until 2026-06-24, test after.
+- **Temporal**: train before 2025-10-17, validation until 2026-05-12, test after. Undated rows (for example a project's initial
+  dependencies) are never targets; those dated after the train cut are left out (`none`), so the model never trains on the future.
 
-Results on the PyPI dataset (40,202 interactions, 3,531 users, 7,142 packages, 99.84% sparse):
+Results on the merged dataset (44,703 adoptions, 3,840 users, 7,561 packages, 99.85% sparse):
 
 | | LOO Recall@20 | LOO NDCG@10 | Temporal Recall@20 | Temporal NDCG@10 |
 |---|---|---|---|---|
-| Random | 0.0017 | 0.0004 | 0.0064 | 0.0006 |
-| Most popular | 0.309 | 0.108 | 0.241 | 0.084 |
-| Retriever (final) | 0.313 [0.299, 0.329] | 0.129 [0.120, 0.137] | 0.253 [0.234, 0.272] | 0.096 [0.085, 0.106] |
+| Most popular | 0.278 [0.264, 0.292] | 0.095 | 0.189 [0.176, 0.202] | 0.068 [0.061, 0.075] |
+| Retriever (final) | **0.316** [0.302, 0.331] | **0.139** [0.130, 0.147] | 0.188 [0.175, 0.200] | 0.071 [0.064, 0.078] |
 
-- The model is above popularity everywhere, but the gap is small: +0.004 Recall@20 in LOO and +0.011 in temporal, inside the model's interval. Only the LOO NDCG@10 gain (+0.021) is clearly outside it. No paired significance test was run.
-- Cold start (packages absent from training) is **not solved**: Recall@20 is 0 on the 460 cold targets of LOO (of 3,531) and the 397 of temporal (of 1,881).
-- Training stops early (patience 8): LOO best validation at epoch 20 (Recall@20 0.302, NDCG@10 0.134), temporal best validation NDCG@10 at epoch 5.
+- In LOO the model is significantly better than popularity.
+- In the temporal protocol it is tied with popularity in Recall@20.
+- Cold start (packages absent from training) is **not solved**: Recall@20 is 0 for both, and 59% of packages have no text description.
+- Run-to-run variation is about 0.003-0.005.
 
-Ablations (LOO test, one seed; full model 0.313 Recall@20 / 0.129 NDCG@10):
+Ablations (LOO, retriever only, one seed each, `python -m src.ablate retr loo`, re-run on the current data):
 
 | Variant | Recall@20 | NDCG@10 |
 |---|---|---|
-| One interest instead of four | 0.300 | 0.130 |
-| Without text | 0.331 | 0.131 |
-| Without event age | 0.309 | 0.127 |
+| Full model (served checkpoint `ckpt_loo_c4.pt`) | **0.316** | **0.139** |
+| One interest instead of four | 0.300 | 0.132 |
+| Without text | 0.299 | 0.130 |
+| Without event age | 0.274 | 0.115 |
 
-No variant is clearly different from the full model on this dataset: neither text, nor event age, nor several interests bring a measurable gain (single seed, differences within run-to-run noise). A manual check shows the four interest channels recommend almost the same packages, mostly very common ones (`packaging`, `typing-extensions`, `protobuf`). On an earlier version of the data, the two-stage ranker lowered validation Recall@20 from about 0.30 to 0.08 and the diffusion module did not help, so neither is part of the final system.
+Every component helps, and event age matters most. An earlier run of the same ablation showed no gain from the four
+interests (one interest 0.312 / 0.133 against 0.312 / 0.131 for the full model), so the interest gain needs more seeds before being
+claimed. The two-stage ranker lowered validation Recall@20 from about 0.30 to 0.08, so it is not part of the final system. The diffusion
+module was only tested on an earlier, smaller dataset, where it did not help.
 
 Reproduce:
 
@@ -149,18 +156,18 @@ python -m src.train --protocol loo --no_ranker
 python -m src.train --protocol temporal --no_ranker
 python -m src.ablate retr                                    # ablations without the ranker
 python -m src.manual_check models/ckpt_loo_c4.pt             # what each interest looks at
-python scripts/measure_latency.py                            # API running
+python scripts/measure_latency.py                            # API running; median 0.026 s, max 0.105 s (reports/week3/latency.csv)
 ```
 
 ---
 
 ## Known limitations
 
+- The API keeps recommendations in the user's ecosystems. Measured offline, this filter raises temporal Recall@20 for both the model (0.189 → 0.207) and popularity (0.189 → 0.215), so it improves the product but does not change the comparison.
 - Interest explanations can rely on infrastructure dependencies or on the project's own sub-packages.
 - Some packages have no description; `stars`, `language` and `created_at` are empty; `is_new` is always `false`.
-- Only users present in the dataset can be served (no live PyPI lookup yet).
-- Only PyPI is covered: users are projects, not individual developers, and a project's adoptions are maintainer decisions.
-- Recommendations are often generic, very common packages.
+- Only users present in the dataset can be served (no live GitHub lookup yet).
+- A user is either a project or a developer; the data is dominated by PyPI projects (about 90% of interactions).
 
 ## Team
 
